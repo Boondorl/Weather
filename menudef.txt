@@ -1,0 +1,32 @@
+OptionValue "WeatherPrecipitationAmount"
+{
+	0, "Off"
+	1, "Low"
+	2, "Medium"
+	3, "High"
+	4, "Very High"
+}
+
+AddOptionMenu "OptionsMenu"
+{
+	Submenu "Weather Options", "WeatherOptions"
+}
+
+OptionMenu "WeatherOptions"
+{
+	Title "Weather Options"
+	
+	StaticText "Weather Settings", Gold
+	StaticText ""
+	
+	Option "Precipitation Amount", "weather_amount", "WeatherPrecipitationAmount"
+	StaticText ""
+	
+	Slider "Precipitation Volume", "weather_precip_vol", 0, 1, 0.05, 2
+	Slider "Wind Volume", "weather_wind_vol", 0, 1, 0.05, 2
+	Slider "Thunder Volume", "weather_thunder_vol", 0, 1, 0.05, 2
+	StaticText ""
+	
+	Option "Disable Lightning", "weather_no_lightning", "OnOff"
+	Option "Disable Fog", "weather_no_fog", "OnOff"
+}
