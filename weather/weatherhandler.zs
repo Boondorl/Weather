@@ -636,6 +636,9 @@ class WeatherHandler : StaticEventHandler
 				cur.SetValue(word, words[i].Mid(1, words[i].Length()-2));
 			}
 		}
+		
+		if (cur)
+			cur.SetDefaults();
 	}
 	
 	PrecipitationType Find(string name)
