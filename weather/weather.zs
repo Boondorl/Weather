@@ -26,13 +26,15 @@ class PortalTracer : LineTracer
 
 class Weather : Actor
 {
-	const FADE_TRANSITION = ceil(TICRATE * 0.125);
+	const FADE_TRANSITION = 0.125;
+
+	// CVars
+	const AMOUNT = "weather_amount";
+	const PRECIP_VOL = "weather_precip_vol";
+	const WIND_VOL = "weather_wind_vol";
+	const THUNDER_VOL = "weather_thunder_vol";
 	
 	private transient PortalTracer pt;
-	private transient CVar amount;
-	private transient CVar precipVol;
-	private transient CVar windVol;
-	private transient CVar thunderVol;
 	
 	private int rateTimer;
 	private double pVolume;
@@ -70,8 +72,15 @@ class Weather : Actor
 		+DONTBLAST
 		+NOTONAUTOMAP
 	}
+
+	override void BeginPlay()
+	{
+		super.BeginPlay();
+
+		ChangeStatNum(MAX_STATNUM);
+	}
 	
-	clearscope Color BlendColors(Color c1, Color c2, double t)
+	clearscope Color BlendColors(Color c1, Color c2, double t) const
 	{
 		int c1r, c1g, c1b;
 		c1r = (c1 & 0xFF0000) >> 16;
@@ -86,7 +95,7 @@ class Weather : Actor
 		int rr, rg, rb;
 		rr = int(c1r*(1-t) + c2r*t) << 16;
 		rg = int(c1g*(1-t) + c2g*t) << 8;
-		rb = c1b*(1-t) + c2b*t;
+		rb = int(c1b*(1-t) + c2b*t);
 		
 		return Color(0xFF000000 | rr | rg | rb);
 	}
@@ -94,39 +103,41 @@ class Weather : Actor
 	clearscope double, Color GetFog(double t = 1) const
 	{
 		Color fc = 0;
-		if ((!current || !current.GetBool("foggy")) && fog > 0)
+		if (fog > 0 && (!current || !current.GetBool('Foggy')))
+		{
 			fc = prevFogColor;
+		}
 		else if (current && fogColorTimer >= 0)
 		{
-			double r = (fogColorTimer + 1-t) / FADE_TRANSITION;
-			if (r > 1)
-				r = 1;
-			
-			fc = BlendColors(prevFogColor, current.GetColor("fog"), 1-r);
+			double r = min(1, (fogColorTimer + 1-t) / ceil(gameTicRate * FADE_TRANSITION));
+			fc = BlendColors(prevFogColor, current.GetColor('Fog'), 1-r);
 		}
 		else if (current)
-			fc = current.GetColor("fog");
+		{
+			fc = current.GetColor('Fog');
+		}
 		
-		return clamp(prevFog,0,1)*(1-t) + clamp(fog,0,1)*t, fc;
+		return clamp(prevFog, 0, 1)*(1-t) + clamp(fog, 0, 1)*t, fc;
 	}
 	
 	clearscope double, Color GetLightning(double t = 1) const
 	{
 		Color lc = 0;
-		if ((!current || !current.GetBool("stormy")) && lightning > 0)
+		if (lightning > 0 && (!current || !current.GetBool('Stormy')))
+		{
 			lc = prevLightningColor;
+		}
 		else if (current && lightningColorTimer >= 0)
 		{
-			double r = (lightningColorTimer + 1-t) / FADE_TRANSITION;
-			if (r > 1)
-				r = 1;
-			
-			lc = BlendColors(prevLightningColor, current.GetColor("lightning"), 1-r);
+			double r = min(1, (lightningColorTimer + 1-t) / ceil(gameTicRate * FADE_TRANSITION));
+			lc = BlendColors(prevLightningColor, current.GetColor('Lightning'), 1-r);
 		}
 		else if (current)
-			lc = current.GetColor("lightning");
+		{
+			lc = current.GetColor('Lightning');
+		}
 		
-		return clamp(prevLightning,0,1)*(1-t) + clamp(lightning,0,1)*t, lc;
+		return clamp(prevLightning, 0, 1)*(1-t) + clamp(lightning, 0, 1)*t, lc;
 	}
 	
 	clearscope int InLightningFlash() const
@@ -136,37 +147,33 @@ class Weather : Actor
 	
 	void Reset(PrecipitationType t = null)
 	{
-		bool wasFoggy;
-		bool wasStormy;
+		bool wasFoggy, wasStormy;
 		if (current)
 		{
-			if (current.GetBool("foggy"))
+			if (current.GetBool('Foggy'))
 			{
 				wasFoggy = true;
-				prevFogColor = current.GetColor("fog");
+				prevFogColor = current.GetColor('Fog');
 			}
 			
-			if (current.GetBool("stormy"))
+			if (current.GetBool('Stormy'))
 			{
 				wasStormy = true;
-				prevLightningColor = current.GetColor("lightning");
+				prevLightningColor = current.GetColor('Lightning');
 			}
 		}
 		
 		current = t;
 		if (current)
 		{
-			if (current.GetBool("stormy"))
+			if (current.GetBool('Stormy'))
 			{
 				if (thunderTimer <= 0)
-					thunderTimer = random[Weather](current.GetTime("minthunder"), current.GetTime("maxthunder"));
+					thunderTimer = Random[Weather](current.GetTime('MinThunder'), current.GetTime('MaxThunder'));
 				if (lightningTimer <= 0)
-					lightningTimer = random[Weather](current.GetTime("minlightning"), current.GetTime("maxlightning"));
+					lightningTimer = Random[Weather](current.GetTime('MinLightning'), current.GetTime('MaxLightning'));
 				
-				if (wasStormy)
-					lightningColorTimer = FADE_TRANSITION;
-				else
-					lightningColorTimer = -1;
+				lightningColorTimer = wasStormy ? ceil(gameTicRate * FADE_TRANSITION) : -1;
 			}
 			else
 			{
@@ -174,13 +181,10 @@ class Weather : Actor
 				lightningColorTimer = -1;
 			}
 			
-			if (!current.GetType("precipitation"))
+			if (!current.GetType('Precipitation'))
 				rateTimer = 0;
 			
-			if (current.GetBool("foggy") && wasFoggy)
-				fogColorTimer = FADE_TRANSITION;
-			else
-				fogColorTimer = -1;
+			fogColorTimer = (wasFoggy && current.GetBool('Foggy')) ? ceil(gameTicRate * FADE_TRANSITION) : -1;
 		}
 		else
 		{
@@ -192,9 +196,6 @@ class Weather : Actor
 	private Vector2 GetCeilingPortalOffset(Sector sec, double z)
 	{
 		Vector2 ofs;
-		if (!sec)
-			return ofs;
-		
 		double portZ = sec.GetPortalPlaneZ(Sector.ceiling);
 		while (z > portZ && !sec.PortalBlocksMovement(Sector.ceiling))
 		{
@@ -225,16 +226,9 @@ class Weather : Actor
 	
 	private bool, double CheckSky(Sector sec, Vector2 spot, double z)
 	{
-		bool sky;
-		double ceilZ;
-		
-		if (!sec)
-			return sky, ceilZ;
-		
-		Sector ceilSec;
-		[ceilZ, ceilSec] = sec.HighestCeilingAt(spot);
-		sky = (ceilSec.GetTexture(Sector.ceiling) == skyFlatNum
-				&& sec.NextHighestCeilingAt(spot.x, spot.y, z, z+1) ~== ceilZ);
+		let [ceilZ, ceilSec] = sec.HighestCeilingAt(spot);
+		bool sky = (ceilSec.GetTexture(Sector.ceiling) == skyFlatNum
+					&& sec.NextHighestCeilingAt(spot.x, spot.y, z, z+1) ~== ceilZ);
 		
 		return sky, ceilZ;
 	}
@@ -300,7 +294,7 @@ class Weather : Actor
 			dist = 0;
 		
 		bool skyCheck;
-		double ceilz;
+		double ceilZ;
 		Sector sec;
 		
 		Vector2 xyOfs = dir * dist;
@@ -308,21 +302,21 @@ class Weather : Actor
 		Vector2 portalSpot = origin.Vec2Offset(xyOfs.x, xyOfs.y);
 		
 		// Did we enter a portal? If so, spawn some precipitation in it
-		if (portalSpot != spawnSpot)
+		if (!(portalSpot ~== spawnSpot))
 		{
 			sec = level.PointInSector(portalSpot);
-			[skyCheck, ceilz] = CheckSky(sec, portalSpot, z);
+			[skyCheck, ceilZ] = CheckSky(sec, portalSpot, z);
 			if ((outdoors && skyCheck) || (indoors && !skyCheck))
 			{	
-				Vector3 spawnPos = (portalSpot+GetCeilingPortalOffset(sec,z), min(z,ceilz));
+				Vector3 spawnPos = (portalSpot+GetCeilingPortalOffset(sec, z), min(z, ceilZ));
 				sec = level.PointInSector(spawnPos.xy);
 				if (level.IsPointInLevel(spawnPos) && !InLiquid(sec, spawnPos) && !In3DFloor(sec, spawnPos))
 				{
 					Spawn(precip, spawnPos, ALLOW_REPLACE);
 					
 					// Shift the position a little
-					dist *= frandom[Weather](0.8,1.2);
-					dir = RotateVector(dir, frandom[Weather](-10,10));
+					dist *= FRandom[Weather](0.8, 1.2);
+					dir = RotateVector(dir, FRandom[Weather](-10, 10));
 					xyOfs = dir * dist;
 				}
 			}
@@ -343,21 +337,21 @@ class Weather : Actor
 		sec = level.PointInSector(spawnSpot);
 		
 		// Is there sky at the very top?
-		[skyCheck, ceilz] = CheckSky(sec, spawnSpot, z);
+		[skyCheck, ceilZ] = CheckSky(sec, spawnSpot, z);
 		if ((!outdoors && skyCheck) || (!indoors && !skyCheck))
 		{
-			if (!origin.CurSector.Portals[Sector.ceiling])
+			if (origin.curSector.PortalBlocksMovement(Sector.ceiling))
 				return;
 			
 			// If not, maybe the portal above the player leads to a valid area?
-			spawnSpot += GetCeilingPortalOffset(origin.CurSector,z);
+			spawnSpot += GetCeilingPortalOffset(origin.curSector, z);
 			sec = level.PointInSector(spawnSpot);
-			[skyCheck, ceilz] = CheckSky(sec, spawnSpot, z);
+			[skyCheck, ceilZ] = CheckSky(sec, spawnSpot, z);
 			if ((!outdoors && skyCheck) || (!indoors && !skyCheck))
 				return;
 		}
 		
-		Vector3 spawnPos = (spawnSpot+GetCeilingPortalOffset(sec,z), min(z,ceilz));
+		Vector3 spawnPos = (spawnSpot+GetCeilingPortalOffset(sec, z), min(z, ceilZ));
 		sec = level.PointInSector(spawnPos.xy);
 		if (!level.IsPointInLevel(spawnPos) || InLiquid(sec, spawnPos) || In3DFloor(sec, spawnPos))
 			return;
@@ -365,15 +359,18 @@ class Weather : Actor
 		Spawn(precip, spawnPos, ALLOW_REPLACE);
 	}
 	
-	bool InFade(string type, bool sky)
+	clearscope bool InFade(Name type, bool sky) const
 	{
-		bool onlyIndoors = current.GetBool(String.Format("%sonlyindoors", type));
-		return (!sky && !onlyIndoors && !current.GetBool(String.Format("%sindoors", type))) || (sky && onlyIndoors);
+		if (!current)
+			return false;
+
+		bool onlyIndoors = current.GetBool(String.Format("%sOnlyIndoors", type));
+		return (sky && onlyIndoors) || (!sky && !onlyIndoors && !current.GetBool(String.Format("%sIndoors", type)));
 	}
 	
 	override void Tick()
 	{
-		master = players[consoleplayer].camera;
+		master = players[consolePlayer].camera;
 		if (!master)
 			return;
 		
@@ -384,58 +381,44 @@ class Weather : Actor
 		if (fogColorTimer >= 0)
 			--fogColorTimer;
 		
-		if (current && current.GetBool("foggy"))
+		if (current && current.GetBool('Foggy'))
 		{
-			bFadingOut = InFade("fog", sky);
+			bFadingOut = InFade('Fog', sky);
 			
-			double a = current.GetAlpha("fog");
+			double a = current.GetAlpha('Fog');
 			if (fog > a)
 			{
-				fog -= 0.01;
-				if (fog < a)
-					fog = a;
+				fog = max(fog-0.01, a);
 			}
 			else if (bFadingOut)
 			{
-				int fade = current.GetTime("fogfadeout");
+				int fade = current.GetTime('FogFadeOut');
 				if (fade <= 0)
 					fog = 0;
 				else if (fog > 0)
-				{
-					fog -= a / fade;
-					if (fog < 0)
-						fog = 0;
-				}
+					fog = max(fog - a/fade, 0);
 			}
 			else if (fog < a)
 			{
-				int fade = current.GetTime("fogfadein");
+				int fade = current.GetTime('FogFadeIn');
 				if (fade <= 0)
 					fog = a;
 				else
-				{
-					fog += a / fade;
-					if (fog > a)
-						fog = a;
-				}
+					fog = min(fog + a/fade, a);
 			}
 		}
 		else if (fog > 0)
 		{
-			fog -= 0.01;
-			if (fog < 0)
-				fog = 0;
+			fog = max(fog-0.01, 0);
 		}
 		
 		// Cache sounds
-		sound precip;
-		sound wind;
-		sound thunder;
+		sound precip, wind, thunder;
 		if (current)
 		{
-			precip = current.GetSound("precipitation");
-			wind = current.GetSound("wind");
-			thunder = current.GetSound("thunder");
+			precip = current.GetSound('Precipitation');
+			wind = current.GetSound('Wind');
+			thunder = current.GetSound('Thunder');
 		}
 		
 		// Storm
@@ -443,22 +426,22 @@ class Weather : Actor
 		if (lightningColorTimer >= 0)
 			--lightningColorTimer;
 		
-		bool stormy = current && current.GetBool("stormy");
+		bool stormy = current && current.GetBool('Stormy');
 		if (stormy)
 		{
 			--thunderTimer;
 			if (thunderTimer <= 0)
 			{
-				thunderTimer = random[Weather](current.GetTime("minthunder"), current.GetTime("maxthunder"));
+				thunderTimer = Random[Weather](current.GetTime('MinThunder'), current.GetTime('MaxThunder'));
 				A_StartSound(thunder, CHAN_7, CHANF_OVERLAP, 1, ATTN_NONE);
 			}
 			
-			if (!InFade("lightning", sky) && !IsFrozen())
+			if (!InFade('Lightning', sky) && !IsFrozen())
 			{
 				--lightningTimer;
 				if (lightningTimer <= 0)
 				{
-					lightningTimer = random[Weather](current.GetTime("minlightning"), current.GetTime("maxlightning"));
+					lightningTimer = Random[Weather](current.GetTime('MinLightning'), current.GetTime('MaxLightning'));
 					bInFlash = true;
 				}
 			}
@@ -467,8 +450,8 @@ class Weather : Actor
 		bInFlash = stormy && bInFlash;
 		if (bInFlash)
 		{
-			int fade = current.GetTime("lightningfadein");
-			double a = current.GetAlpha("lightning");
+			int fade = current.GetTime('LightningFadeIn');
+			double a = current.GetAlpha('Lightning');
 			if (fade <= 0)
 				lightning = a;
 			else if (lightning < a)
@@ -482,16 +465,12 @@ class Weather : Actor
 		}
 		else if (lightning > 0)
 		{
-			int fade = stormy ? current.GetTime("lightningfadeout") : 3;
-			double a = stormy ? current.GetAlpha("lightning") : 0.1;
+			int fade = stormy ? current.GetTime('LightningFadeOut') : 3;
+			double a = stormy ? current.GetAlpha('Lightning') : 0.1;
 			if (fade <= 0)
 				lightning = 0;
 			else
-			{
-				lightning -= a / fade;
-				if (lightning < 0)
-					lightning = 0;
-			}
+				lightning = max(lightning - a/fade, 0);
 		}
 		
 		// Audio
@@ -499,76 +478,72 @@ class Weather : Actor
 		A_StartSound(wind, CHAN_6, CHANF_LOOPING, 1, ATTN_NONE);
 		
 		if (current && precip)
-			pVolume = CalculateVolume(pVolume, current.GetVolume("minprecipitation"), current.GetVolume("maxprecipitation"), InFade("precipitation", sky), current.GetTime("precipitationvolumefadein"), current.GetTime("precipitationvolumefadeout"));
+		{
+			pVolume = CalculateVolume(pVolume, current.GetVolume('MinPrecipitation'), current.GetVolume('MaxPrecipitation'), InFade('Precipitation', sky), current.GetTime('PrecipitationVolumeFadeIn'), current.GetTime('PrecipitationVolumeFadeOut'));
+		}
 		else
 		{
-			pVolume = CalculateVolume(pVolume, 0, 1, true, TICRATE, TICRATE);
+			pVolume = CalculateVolume(pVolume, 0, 1, true, gameTicRate, gameTicRate);
 			if (pVolume <= 0)
 				A_StopSound(CHAN_5);
 		}
 		
 		if (current && wind)
-			wVolume = CalculateVolume(wVolume, current.GetVolume("minwind"), current.GetVolume("maxwind"), InFade("wind", sky), current.GetTime("windvolumefadein"), current.GetTime("windvolumefadeout"));
+		{
+			wVolume = CalculateVolume(wVolume, current.GetVolume('MinWind'), current.GetVolume('MaxWind'), InFade('Wind', sky), current.GetTime('WindVolumeFadeIn'), current.GetTime('WindVolumeFadeOut'));
+		}
 		else
 		{
-			wVolume = CalculateVolume(wVolume, 0, 1, true, TICRATE, TICRATE);
+			wVolume = CalculateVolume(wVolume, 0, 1, true, gameTicRate, gameTicRate);
 			if (wVolume <= 0)
 				A_StopSound(CHAN_6);
 		}
 		
 		if (current && thunder)
-			tVolume = CalculateVolume(tVolume, current.GetVolume("minthunder"), current.GetTime("maxthunder"), InFade("thunder", sky), current.GetTime("thundervolumefadein"), current.GetTime("thundervolumefadeout"));
+		{
+			tVolume = CalculateVolume(tVolume, current.GetVolume('MinThunder'), current.GetTime('MaxThunder'), InFade('Thunder', sky), current.GetTime('ThunderVolumeFadeIn'), current.GetTime('ThunderVolumeFadeOut'));
+		}
 		else
 		{
-			tVolume = CalculateVolume(tVolume, 0, 1, true, TICRATE, TICRATE);
+			tVolume = CalculateVolume(tVolume, 0, 1, true, gameTicRate, gameTicRate);
 			if (tVolume <= 0)
 				A_StopSound(CHAN_7);
 		}
 		
-		if (!precipVol)
-			precipVol = CVar.GetCVar("weather_precip_vol", players[consoleplayer]);
-		if (!windVol)
-			windVol = CVar.GetCVar("weather_wind_vol", players[consoleplayer]);
-		if (!thunderVol)
-			thunderVol = CVar.GetCVar("weather_thunder_vol", players[consoleplayer]);
-		
-		A_SoundVolume(CHAN_5, pVolume * clamp(precipVol.GetFloat(), 0, 1));
-		A_SoundVolume(CHAN_6, wVolume * clamp(windVol.GetFloat(), 0, 1));
-		A_SoundVolume(CHAN_7, tVolume * clamp(thunderVol.GetFloat(), 0, 1));
+		A_SoundVolume(CHAN_5, pVolume * clamp(CVar.GetCVar(PRECIP_VOL, players[consolePlayer]).GetFloat(), 0, 1));
+		A_SoundVolume(CHAN_6, wVolume * clamp(CVar.GetCVar(WIND_VOL, players[consolePlayer]).GetFloat(), 0, 1));
+		A_SoundVolume(CHAN_7, tVolume * clamp(CVar.GetCVar(THUNDER_VOL, players[consolePlayer]).GetFloat(), 0, 1));
 		
 		if (!current)
 			return;
 		
 		// Precipitation
-		if (!amount)
-			amount = CVar.GetCVar("weather_amount", players[consoleplayer]);
-		
-		double multi = min(4, amount.GetFloat());
+		double multi = min(4, CVar.GetCVar(AMOUNT, players[consolePlayer]).GetFloat());
 		if (multi <= 0 || IsFrozen())
 			return;
 		
-		let type = current.GetType("precipitation");
-		if (type && ++rateTimer >= current.GetTime("precipitationrate"))
+		let type = current.GetType('Precipitation');
+		if (type && ++rateTimer >= current.GetTime('PrecipitationRate'))
 		{
 			rateTimer = 0;
 			
-			double z = master.pos.z + current.GetFloat("precipitationheight");
-			double xy = current.GetFloat("precipitationradius");
-			double minXY = master == players[consoleplayer].mo && (players[consoleplayer].cheats & CF_CHASECAM) ? 0 : 8;
-			bool only = current.GetBool("precipitationonlyindoors");
-			bool inside = only || current.GetBool("precipitationindoors");
-			int amt = ceil(current.GetInt("precipitationamount") * multi);
+			double z = master.pos.z + current.GetFloat('PrecipitationHeight');
+			double xy = current.GetFloat('PrecipitationRadius');
+			double minXY = master == players[consolePlayer].mo && (players[consolePlayer].cheats & CF_CHASECAM) ? 0 : 16;
+			bool only = current.GetBool('PrecipitationOnlyIndoors');
+			bool inside = only || current.GetBool('PrecipitationIndoors');
+			int amt = ceil(current.GetInt('PrecipitationAmount') * multi);
 			for (int i = 0; i < amt; ++i)
 			{
-				Vector2 dir = AngleToVector(frandom[Weather](0,360));
-				double dist = frandom[Weather](minXY,xy);
+				Vector2 dir = FRandom[Weather](0, 360).ToVector();
+				double dist = FRandom[Weather](minXY, xy);
 				
 				SpawnPrecipitation(master, type, dir, dist, z, !only, inside);
 			}
 		}
 	}
 	
-	double CalculateVolume(double v, double mi, double ma, bool fadeOut, int fis, int fos)
+	clearscope double CalculateVolume(double v, double mi, double ma, bool fadeOut, int fis, int fos) const
 	{
 		v = clamp(v, 0, 1);
 		
@@ -577,23 +552,21 @@ class Weather : Actor
 			if (v > mi)
 			{
 				if (fos <= 0)
+				{
 					v = mi;
+				}
 				else
 				{
 					double diff = ma - mi;
 					if (diff <= 0)
 						diff = 1;
-					
-					v -= diff / fos;
-					if (v < mi)
-						v = mi;
+
+					v = max(v - diff/fos, mi);
 				}
 			}
 			else if (v < mi)
 			{
-				v += 1. / TICRATE;
-				if (v > mi)
-					v = mi;
+				v = min(v + 1.0/gameTicRate, mi);
 			}
 		}
 		else 
@@ -601,23 +574,21 @@ class Weather : Actor
 			if (v < ma)
 			{
 				if (fis <= 0)
+				{
 					v = ma;
+				}
 				else
 				{
 					double diff = ma - mi;
 					if (diff <= 0)
 						diff = 1;
 					
-					v += diff / fis;
-					if (v > ma)
-						v = ma;
+					v = min(v + diff/fis, ma);
 				}
 			}
 			else if (v > ma)
 			{
-				v -= 1. / TICRATE;
-				if (v < ma)
-					v = ma;
+				v = max(v - 1.0/gameTicRate, ma);
 			}
 		}
 		
@@ -628,7 +599,7 @@ class Weather : Actor
 	
 	static Weather Get()
 	{
-		ThinkerIterator it = ThinkerIterator.Create("Weather", Thinker.STAT_DEFAULT);
+		let it = ThinkerIterator.Create("Weather", MAX_STATNUM);
 		return Weather(it.Next());
 	}
 	
