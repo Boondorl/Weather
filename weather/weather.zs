@@ -603,25 +603,22 @@ class Weather : Actor
 		return Weather(it.Next());
 	}
 	
-	static PrecipitationType GetPrecipitationType(string name)
+	static PrecipitationType GetPrecipitationType(Name n)
 	{
 		let wh = WeatherHandler(StaticEventHandler.Find("WeatherHandler"));
-		if (!wh)
-			return null;
-		
-		return wh.FindType(name);
+		return wh ? wh.FindType(n) : null;
 	}
 	
-	static void SetPrecipitationType(string name)
+	static void SetPrecipitationType(Name n)
 	{
 		let wthr = Weather.Get();
 		if (wthr)
-			wthr.Reset(Weather.GetPrecipitationType(name));
+			wthr.Reset(Weather.GetPrecipitationType(n));
 	}
 	
-	static string GetPrecipitationTypeName()
+	static Name GetPrecipitationTypeName()
 	{
-		string n = "";
+		Name n;
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
 			n = wthr.current.GetName();
@@ -633,10 +630,10 @@ class Weather : Actor
 	{
 		let wthr = Weather.Get();
 		if (!wthr || !wthr.current)
-			return "";
+			return PrecipitationType.DEFAULT_STRING;
 		
-		string t = wthr.current.GetLocalizedString("precipitationtag");
-		if (t == "")
+		string t = wthr.current.GetLocalizedString('PrecipitationTag');
+		if (!t.Length())
 			t = wthr.current.GetName();
 		
 		return t;
@@ -646,7 +643,7 @@ class Weather : Actor
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			wthr.current.SetString("precipitationtag", t);
+			wthr.current.SetString('PrecipitationTag', t);
 	}
 	
 	static void SetPrecipitationTypeDefaults()
@@ -667,7 +664,7 @@ class Weather : Actor
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			wthr.current.SetString("precipitationtype", cls);
+			wthr.current.SetString('PrecipitationType', cls);
 	}
 	
 	static void SetPrecipitationProperties(double rate = -1, int amt = -1, double rad = -1, double h = -1, int indoors = -1, int indoorsOnly = -1)
@@ -677,24 +674,24 @@ class Weather : Actor
 			return;
 		
 		if (rate >= 0)
-			wthr.current.SetFloat("precipitationratetime", rate);
+			wthr.current.SetFloat('PrecipitationRateTime', rate);
 		if (amt >= 0)
-			wthr.current.SetInt("precipitationamount", amt);
+			wthr.current.SetInt('PrecipitationAmount', amt);
 		if (rad >= 0)
-			wthr.current.SetFloat("precipitationradius", rad);
+			wthr.current.SetFloat('PrecipitationRadius', rad);
 		if (h >= 0)
-			wthr.current.SetFloat("precipitationheight", h);
+			wthr.current.SetFloat('PrecipitationHeight', h);
 		if (indoors >= 0)
-			wthr.current.SetBool("precipitationindoors", !!indoors);
+			wthr.current.SetBool('PrecipitationIndoors', !!indoors);
 		if (indoorsOnly >= 0)
-			wthr.current.SetBool("precipitationonlyindoors", !!indoorsOnly);
+			wthr.current.SetBool('PrecipitationOnlyIndoors', !!indoorsOnly);
 	}
 	
-	static void SetPrecipitationSound(string s)
+	static void SetPrecipitationSound(sound s)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			wthr.current.SetString("precipitationsound", s);
+			wthr.current.SetString('PrecipitationSound', s);
 	}
 	
 	static void SetPrecipitationVolume(double mi = -1, double ma = -1, double fadeIn = -1, double fadeOut = -1)
@@ -704,13 +701,13 @@ class Weather : Actor
 			return;
 		
 		if (mi >= 0)
-			wthr.current.SetFloat("minprecipitationvolume", mi);
+			wthr.current.SetFloat('MinPrecipitationVolume', mi);
 		if (ma >= 0)
-			wthr.current.SetFloat("maxprecipitationvolume", ma);
+			wthr.current.SetFloat('MaxPrecipitationVolume', ma);
 		if (fadeIn >= 0)
-			wthr.current.SetFloat("precipitationvolumefadeintime", fadeIn);
+			wthr.current.SetFloat('PrecipitationVolumeFadeInTime', fadeIn);
 		if (fadeOut >= 0)
-			wthr.current.SetFloat("precipitationvolumefadeouttime", fadeOut);
+			wthr.current.SetFloat('PrecipitationVolumeFadeOutTime', fadeOut);
 	}
 	
 	static void SetWindProperties(int indoors = -1, int indoorsOnly = -1)
@@ -720,16 +717,16 @@ class Weather : Actor
 			return;
 		
 		if (indoors >= 0)
-			wthr.current.SetBool("windindoors", !!indoors);
+			wthr.current.SetBool('WindIndoors', !!indoors);
 		if (indoorsOnly >= 0)
-			wthr.current.SetBool("windonlyindoors", !!indoorsOnly);
+			wthr.current.SetBool('WindOnlyIndoors', !!indoorsOnly);
 	}
 	
-	static void SetWindSound(string s)
+	static void SetWindSound(sound s)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			wthr.current.SetString("windsound", s);
+			wthr.current.SetString('WindSound', s);
 	}
 	
 	static void SetWindVolume(double mi = -1, double ma = -1, double fadeIn = -1, double fadeOut = -1)
@@ -739,20 +736,20 @@ class Weather : Actor
 			return;
 		
 		if (mi >= 0)
-			wthr.current.SetFloat("minwindvolume", mi);
+			wthr.current.SetFloat('MinWindVolume', mi);
 		if (ma >= 0)
-			wthr.current.SetFloat("maxwindvolume", ma);
+			wthr.current.SetFloat('MaxWindVolume', ma);
 		if (fadeIn >= 0)
-			wthr.current.SetFloat("windvolumefadeintime", fadeIn);
+			wthr.current.SetFloat('WindVolumeFadeInTime', fadeIn);
 		if (fadeOut >= 0)
-			wthr.current.SetFloat("windvolumefadeouttime", fadeOut);
+			wthr.current.SetFloat('WindVolumeFadeOutTime', fadeOut);
 	}
 	
 	static void ToggleStorm(bool enabled)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			wthr.current.SetBool("stormy", enabled);
+			wthr.current.SetBool('Stormy', enabled);
 	}
 	
 	static void SetThunderInterval(double mi = -1, double ma = -1)
@@ -762,9 +759,9 @@ class Weather : Actor
 			return;
 		
 		if (mi >= 0)
-			wthr.current.SetFloat("minthundertime", mi);
+			wthr.current.SetFloat('MinThunderTime', mi);
 		if (ma >= 0)
-			wthr.current.SetFloat("maxthundertime", ma);
+			wthr.current.SetFloat('MaxThunderTime', ma);
 	}
 	
 	static void SetThunderProperties(int indoors = -1, int indoorsOnly = -1)
@@ -774,16 +771,16 @@ class Weather : Actor
 			return;
 		
 		if (indoors >= 0)
-			wthr.current.SetBool("thunderindoors", !!indoors);
+			wthr.current.SetBool('ThunderIndoors', !!indoors);
 		if (indoorsOnly >= 0)
-			wthr.current.SetBool("thunderonlyindoors", !!indoorsOnly);
+			wthr.current.SetBool('ThunderOnlyIndoors', !!indoorsOnly);
 	}
 	
-	static void SetThunderSound(string s)
+	static void SetThunderSound(sound s)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			wthr.current.SetString("thundersound", s);
+			wthr.current.SetString('ThunderSound', s);
 	}
 	
 	static void SetThunderVolume(double mi = -1, double ma = -1, double fadeIn = -1, double fadeOut = -1)
@@ -793,13 +790,13 @@ class Weather : Actor
 			return;
 		
 		if (mi >= 0)
-			wthr.current.SetFloat("minthundervolume", mi);
+			wthr.current.SetFloat('MinThunderVolume', mi);
 		if (ma >= 0)
-			wthr.current.SetFloat("maxthundervolume", ma);
+			wthr.current.SetFloat('MaxThunderVolume', ma);
 		if (fadeIn >= 0)
-			wthr.current.SetFloat("thundervolumefadeintime", fadeIn);
+			wthr.current.SetFloat('ThunderVolumeFadeInTime', fadeIn);
 		if (fadeOut >= 0)
-			wthr.current.SetFloat("thundervolumefadeouttime", fadeOut);
+			wthr.current.SetFloat('ThunderVolumeFadeOutTime', fadeOut);
 	}
 	
 	static void SetLightningInterval(double mi = -1, double ma = -1)
@@ -809,9 +806,9 @@ class Weather : Actor
 			return;
 		
 		if (mi >= 0)
-			wthr.current.SetFloat("minlightningtime", mi);
+			wthr.current.SetFloat('MinLightningTime', mi);
 		if (ma >= 0)
-			wthr.current.SetFloat("maxlightningtime", ma);
+			wthr.current.SetFloat('MaxLightningTime', ma);
 	}
 	
 	static void SetLightningProperties(double a = -1, int col = -1, double fadeIn = -1, double fadeOut = -1, int indoors = -1, int indoorsOnly = -1)
@@ -821,24 +818,24 @@ class Weather : Actor
 			return;
 		
 		if (a >= 0)
-			wthr.current.SetFloat("lightningalpha", a);
+			wthr.current.SetFloat('LightningAlpha', a);
 		if (col >= 0)
-			wthr.current.SetInt("lightningcolor", col);
+			wthr.current.SetInt('LightningColor', col);
 		if (fadeIn >= 0)
-			wthr.current.SetFloat("lightningfadeintime", fadeIn);
+			wthr.current.SetFloat('LightningFadeInTime', fadeIn);
 		if (fadeOut >= 0)
-			wthr.current.SetFloat("lightningfadeouttime", fadeOut);
+			wthr.current.SetFloat('LightningFadeOutTime', fadeOut);
 		if (indoors >= 0)
-			wthr.current.SetBool("lightningindoors", !!indoors);
+			wthr.current.SetBool('LightningIndoors', !!indoors);
 		if (indoorsOnly >= 0)
-			wthr.current.SetBool("lightningonlyindoors", !!indoorsOnly);
+			wthr.current.SetBool('LightningOnlyIndoors', !!indoorsOnly);
 	}
 	
 	static void ToggleFog(bool enabled)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			wthr.current.SetBool("foggy", enabled);
+			wthr.current.SetBool('Foggy', enabled);
 	}
 	
 	static void SetFogProperties(double a = -1, int col = -1, double fadeIn = -1, double fadeOut = -1, int indoors = -1, int indoorsOnly = -1)
@@ -848,29 +845,29 @@ class Weather : Actor
 			return;
 		
 		if (a >= 0)
-			wthr.current.SetFloat("fogalpha", a);
+			wthr.current.SetFloat('FogAlpha', a);
 		if (col >= 0)
-			wthr.current.SetInt("fogcolor", col);
+			wthr.current.SetInt('FogColor', col);
 		if (fadeIn >= 0)
-			wthr.current.SetFloat("fogfadeintime", fadeIn);
+			wthr.current.SetFloat('FogFadeInTime', fadeIn);
 		if (fadeOut >= 0)
-			wthr.current.SetFloat("fogfadeouttime", fadeOut);
+			wthr.current.SetFloat('FogFadeOutTime', fadeOut);
 		if (indoors >= 0)
-			wthr.current.SetBool("fogindoors", !!indoors);
+			wthr.current.SetBool('FogIndoors', !!indoors);
 		if (indoorsOnly >= 0)
-			wthr.current.SetBool("fogonlyindoors", !!indoorsOnly);
+			wthr.current.SetBool('FogOnlyIndoors', !!indoorsOnly);
 	}
 	
-	static string GetStringProperty(string k, bool localized = false)
+	static string GetStringProperty(Name k, bool localized = false)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
 			return localized ? wthr.current.GetLocalizedString(k) : wthr.current.GetString(k);
 		
-		return "";
+		return PrecipitationType.DEFAULT_STRING;
 	}
 	
-	static bool GetBoolProperty(string k)
+	static bool GetBoolProperty(Name k)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
@@ -879,7 +876,7 @@ class Weather : Actor
 		return false;
 	}
 	
-	static int GetIntProperty(string k)
+	static int GetIntProperty(Name k)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
@@ -888,7 +885,7 @@ class Weather : Actor
 		return 0;
 	}
 	
-	static double GetFloatProperty(string k)
+	static double GetFloatProperty(Name k)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
@@ -897,16 +894,16 @@ class Weather : Actor
 		return 0;
 	}
 	
-	static string GetDefaultStringProperty(string k, bool localized = false)
+	static string GetDefaultStringProperty(Name k, bool localized = false)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
 			return localized ? wthr.current.GetDefaultLocalizedString(k) : wthr.current.GetDefaultString(k);
 		
-		return "";
+		return PrecipitationType.DEFAULT_STRING;
 	}
 	
-	static bool GetDefaultBoolProperty(string k)
+	static bool GetDefaultBoolProperty(Name k)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
@@ -915,7 +912,7 @@ class Weather : Actor
 		return false;
 	}
 	
-	static int GetDefaultIntProperty(string k)
+	static int GetDefaultIntProperty(Name k)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
@@ -924,7 +921,7 @@ class Weather : Actor
 		return 0;
 	}
 	
-	static double GetDefaultFloatProperty(string k)
+	static double GetDefaultFloatProperty(Name k)
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)

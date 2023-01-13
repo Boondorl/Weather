@@ -235,7 +235,7 @@ class WeatherHandler : StaticEventHandler
 		standardFields.Insert('LightningFadeInTime', "0.02");
 		standardFields.Insert('LightningFadeOutTime', "0.1");
 		standardFields.Insert('PrecipitationRateTime', "0");
-		standardFields.Insert('PrecipitationRadius', "1024");
+		standardFields.Insert('PrecipitationRadius', "768");
 		standardFields.Insert('PrecipitationHeight', "384");
 		
 		// strings
