@@ -161,7 +161,7 @@ class WeatherError
 
 	string ToString() const
 	{
-		return String.Format("\cRError: %s - %s:%d", message, lump, line);
+		return String.Format("%sError: %s - %s:%d", Font.TEXTCOLOR_RED, message, lump, line);
 	}
 }
 
@@ -306,14 +306,15 @@ class WeatherHandler : StaticEventHandler
 	{
 		if (!reader.NextLexeme())
 		{
-			Console.PrintF("\cYWarning: File %s has nothing defined in it", reader.GetLumpName());
+			Console.PrintF("%sWarning: File %s has nothing defined in it", Font.TEXTCOLOR_YELLOW, reader.GetLumpName());
 			return null;
 		}
 
 		string word = reader.GetLexeme();
-		if (!word.Length())
+		if (reserved.CheckKey(word))
 		{
-			ThrowError("No name given to precipitation type", reader.GetLumpName(), reader.GetLine());
+			string msg = String.Format("Invalid use of keyword %s", word);
+			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
 			return null;
 		}
 
@@ -372,21 +373,22 @@ class WeatherHandler : StaticEventHandler
 			}
 			else if (standardFields.CheckKey(word))
 			{
+				int line = reader.GetLine();
 				if (!reader.NextLexeme())
 				{
-					ThrowError("Unexpected end of file", reader.GetLumpName(), reader.GetLine());
+					ThrowError("Unexpected end of file", reader.GetLumpName(), line);
 					return false;
 				}
 
 				if (reader.GetLexeme() != ASSIGN)
 				{
-					ThrowError("Must use = when assigning a property", reader.GetLumpName(), reader.GetLine());
+					ThrowError("Must use = when assigning a property", reader.GetLumpName(), line);
 					return false;
 				}
 
 				if (!reader.NextLexeme())
 				{
-					ThrowError("Unexpected end of file", reader.GetLumpName(), reader.GetLine());
+					ThrowError("Unexpected end of file", reader.GetLumpName(), line);
 					return false;
 				}
 

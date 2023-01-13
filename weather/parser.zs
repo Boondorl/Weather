@@ -14,7 +14,7 @@ class WeatherStreamReader
     private string fullName;
 
     private string stream;
-    private int curIndex;
+    private int curIndex, nextIndex;
     private bool bEndOfStream;
     private int line;
     private string curLexeme;
@@ -31,7 +31,8 @@ class WeatherStreamReader
     {
         fullName = EMPTY_STRING;
         stream = EMPTY_STRING;
-        curIndex = 0;
+        curIndex = -1;
+        nextIndex = 0;
         bEndOfStream = true;
         line = 0;
         curLexeme = EMPTY_STRING;
@@ -42,8 +43,8 @@ class WeatherStreamReader
 
         fullName = Wads.GetLumpFullName(curLump);
         stream = Wads.ReadLump(curLump);
-        bEndOfStream = IsEnd(curIndex);
         line = 1;
+        bEndOfStream = stream.Length() <= 0;
 
         ++curLump;
         return true;
@@ -68,7 +69,7 @@ class WeatherStreamReader
                 break;
 
             int ch = Read();
-            if (ch == FORW_SLASH)
+            if (!inString && ch == FORW_SLASH)
             {
                 int next = Peek();
                 if (next == FORW_SLASH)
@@ -129,9 +130,11 @@ class WeatherStreamReader
         if (bEndOfStream)
             return 0;
 
+        curIndex = nextIndex;
+
         int ch;
-        [ch, curIndex] = stream.GetNextCodePoint(curIndex);
-        bEndOfStream = IsEnd(curIndex);
+        [ch, nextIndex] = stream.GetNextCodePoint(curIndex);
+        bEndOfStream = (Peek() == 0);
 
         return ch;
     }
@@ -141,8 +144,7 @@ class WeatherStreamReader
         if (bEndOfStream)
             return 0;
 
-        let [temp, next] = stream.GetNextCodePoint(curIndex);
-        return !IsEnd(next) ? stream.GetNextCodePoint(next) : 0;
+        return stream.GetNextCodePoint(nextIndex);
     }
 
     private void SkipWhitespace()
@@ -182,10 +184,5 @@ class WeatherStreamReader
     private bool IsWhitespace(int ch)
     {
         return ch == 0x20 || ch == 0x09 || (ch >= 0x0A && ch <= 0x0D);
-    }
-
-    private bool IsEnd(uint index)
-    {
-        return index >= stream.Length();
     }
 }
