@@ -1,15 +1,23 @@
-// TODO: Finally traverse through these like normal
 class PortalTracer : LineTracer
 {
-	Line portal;
-	
 	override ETraceStatus TraceCallback()
     {
-		if (results.hitType == TRACE_HitWall
-			&& results.hitLine.special == 156 && results.hitLine.args[2] <= 1)
+		if (results.hitType == TRACE_HitWall)
 		{
-			portal = results.hitLine;
-			return TRACE_Stop;
+			if (results.hitLine.special == 156 && results.hitLine.args[2] <= 1)
+			{
+				Line l = results.hitLine;
+				Line d = l.GetPortalDestination();
+
+				results.srcFromTarget.xy += (d.v1.p + d.delta*0.5) - (l.v1.p + l.delta*0.5);
+				
+				double angDiff = Actor.DeltaAngle(atan2(l.delta.y, l.delta.x), atan2(d.delta.y, d.delta.x));
+				results.hitVector.xy = Actor.RotateVector(results.hitVector.xy, -angDiff);
+			}
+			else if (!(results.hitLine.flags & Line.ML_TWOSIDED))
+			{
+				return TRACE_Stop;
+			}
 		}
 		
         return TRACE_Skip;
@@ -184,18 +192,18 @@ class Weather : Actor
 	private Vector2 GetCeilingPortalOffset(Sector sec, double z)
 	{
 		Vector2 ofs;
-		if (!sec || !sec.Portals[Sector.ceiling])
+		if (!sec)
 			return ofs;
 		
-		double portz = sec.GetPortalPlaneZ(Sector.ceiling);
-		while (sec.Portals[Sector.ceiling] && z > portz)
+		double portZ = sec.GetPortalPlaneZ(Sector.ceiling);
+		while (z > portZ && !sec.PortalBlocksMovement(Sector.ceiling))
 		{
 			ofs += sec.GetPortalDisplacement(Sector.ceiling);
 			sec = level.sectorPortals[sec.portals[Sector.ceiling]].mDestination;
 			if (!sec)
 				break;
 			
-			portz = sec.GetPortalPlaneZ(Sector.ceiling);
+			portZ = sec.GetPortalPlaneZ(Sector.ceiling);
 		}
 		
 		return ofs;
@@ -218,35 +226,31 @@ class Weather : Actor
 	private bool, double CheckSky(Sector sec, Vector2 spot, double z)
 	{
 		bool sky;
-		double ceilz;
+		double ceilZ;
 		
 		if (!sec)
-			return sky, ceilz;
+			return sky, ceilZ;
 		
 		Sector ceilSec;
-		[ceilz, ceilSec] = sec.HighestCeilingAt(spot);
-		if (ceilSec.GetTexture(Sector.ceiling) == skyflatnum)
-		{
-			double top = sec.NextHighestCeilingAt(spot.x, spot.y, z, z+1);
-			if (top == ceilz)
-				sky = true;
-		}
+		[ceilZ, ceilSec] = sec.HighestCeilingAt(spot);
+		sky = (ceilSec.GetTexture(Sector.ceiling) == skyFlatNum
+				&& sec.NextHighestCeilingAt(spot.x, spot.y, z, z+1) ~== ceilZ);
 		
-		return sky, ceilz;
+		return sky, ceilZ;
 	}
 	
 	private bool InLiquid(Sector sec, Vector3 spot)
 	{
-		if (sec.MoreFlags & Sector.SECMF_UNDERWATER)
+		if (sec.moreFlags & Sector.SECMF_UNDERWATER)
 			return true;
 		else
 		{
-			let hsec = sec.GetHeightSec();
-			if (hsec)
+			Sector hSec = sec.GetHeightSec();
+			if (hSec)
 			{
-				if ((hsec.MoreFlags & Sector.SECMF_UNDERWATERMASK)
-					&& (spot.z < hsec.floorPlane.ZAtPoint(spot.xy)
-					|| (!(hsec.MoreFlags & Sector.SECMF_FAKEFLOORONLY) && spot.z > hsec.ceilingPlane.ZAtPoint(spot.xy))))
+				if ((hSec.moreFlags & Sector.SECMF_UNDERWATERMASK)
+					&& (spot.z < hSec.floorPlane.ZAtPoint(spot.xy)
+						|| (!(hSec.moreFlags & Sector.SECMF_FAKEFLOORONLY) && spot.z > hSec.ceilingPlane.ZAtPoint(spot.xy))))
 				{
 					return true;
 				}
@@ -280,7 +284,7 @@ class Weather : Actor
 			if (!(ffloor.flags & F3DFloor.FF_EXISTS) || !(ffloor.flags & F3DFloor.FF_SOLID))
 				continue;
 			
-			if (ffloor.top.ZAtPoint(spot.xy) >= spot.z && ffloor.bottom.ZAtPoint(spot.xy) < spot.z)
+			if (ffloor.top.ZAtPoint(spot.xy) > spot.z && ffloor.bottom.ZAtPoint(spot.xy) <= spot.z)
 				return true;
 		}
 		
@@ -329,10 +333,10 @@ class Weather : Actor
 		
 		// If we hit a visual only portal, get the offsets to the location it's looking at
 		Vector2 visOfs;
-		pt.portal = null;
+		/*pt.portal = null;
 		pt.Trace((origin.pos.xy,-32768), origin.CurSector, (dir,0), dist, 0);
 		if (pt.portal)
-			[visOfs, xyOfs] = VisPortalOffset(pt.portal, pt.portal.GetPortalDestination(), xyOfs);
+			[visOfs, xyOfs] = VisPortalOffset(pt.portal, pt.portal.GetPortalDestination(), xyOfs);*/
 		
 		// Now that we've accounted for portals, spawn it regularly
 		spawnSpot = origin.pos.xy + xyOfs + visOfs;
@@ -373,7 +377,7 @@ class Weather : Actor
 		if (!master)
 			return;
 		
-		bool sky = master.ceilingpic == skyflatnum;
+		bool sky = master.ceilingPic == skyFlatNum;
 		
 		// Fog
 		prevFog = fog;

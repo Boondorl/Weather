@@ -330,7 +330,8 @@ class WeatherHandler : StaticEventHandler
 		word = reader.GetLexeme();
 		if (word != OPEN_BRACE)
 		{
-			ThrowError("Failed to open type block", reader.GetLumpName(), reader.GetLine());
+			string msg = String.Format("Failed to open block for type %s", pType.GetName());
+			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
 			return null;
 		}
 
@@ -340,7 +341,8 @@ class WeatherHandler : StaticEventHandler
 		word = reader.GetLexeme();
 		if (word != CLOSE_BRACE)
 		{
-			ThrowError("Failed to close type block", reader.GetLumpName(), reader.GetLine());
+			string msg = String.Format("Failed to close block for type %s", pType.GetName());
+			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
 			return null;
 		}
 
@@ -360,7 +362,7 @@ class WeatherHandler : StaticEventHandler
 
 			if (reserved.CheckKey(word))
 			{
-				string msg = String.Format("Tried to use keyword %s in wrong place", word);
+				string msg = String.Format("Invalid use of keyword %s", word);
 				ThrowError(msg, reader.GetLumpName(), reader.GetLine());
 				return false;
 			}
@@ -418,10 +420,11 @@ class WeatherHandler : StaticEventHandler
 	}
 	
 	// General weather handling
+
+	const NO_FOG = "weather_no_fog";
+	const NO_LIGHTNING = "weather_no_lightning";
 	
 	private Weather wthr;
-	private transient ui CVar noFog;
-	private transient ui CVar noLightning;
 	
 	override void WorldTick()
 	{
@@ -431,31 +434,21 @@ class WeatherHandler : StaticEventHandler
 	
 	override void RenderUnderlay(RenderEvent e)
 	{
-		if (!wthr || automapactive)
+		if (!wthr || automapActive)
 			return;
 		
 		int x, y, w, h;
 		[x, y, w, h] = Screen.GetViewWindow();
 		
-		if (!noFog)
-			noFog = CVar.GetCVar("weather_no_fog", players[consoleplayer]);
-		
-		if (!noFog.GetBool())
+		if (!CVar.GetCVar(NO_FOG, players[consolePlayer]).GetBool())
 		{
-			double fog;
-			Color col;
-			[fog, col] = wthr.GetFog(e.fracTic);
+			let [fog, col] = wthr.GetFog(e.fracTic);
 			Screen.Dim(col, fog, x, y, w, h);
 		}
 		
-		if (!noLightning)
-			noLightning = CVar.GetCVar("weather_no_lightning", players[consoleplayer]);
-		
-		if (!noLightning.GetBool() && wthr.InLightningFlash())
+		if (!CVar.GetCVar(NO_LIGHTNING, players[consolePlayer]).GetBool() && wthr.InLightningFlash())
 		{
-			double inten;
-			Color flash;
-			[inten, flash] = wthr.GetLightning(e.fracTic);
+			let [inten, flash] = wthr.GetLightning(e.fracTic);
 			Screen.Dim(flash, inten, x, y, w, h);
 		}
 	}
