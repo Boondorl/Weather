@@ -58,14 +58,27 @@ class WeatherStreamReader
         if (bEndOfStream)
             return false;
 
-        bool inString = (Peek() == QUOTE);
+        bool inString, wasString;
+        inString = wasString = (Peek() == QUOTE);
         bool appendQuote;
 
-        // TODO: Fix up string handling
+        if (inString)
+            Read();
+
+        // TODO: Error handling
         while (!bEndOfStream)
         {
             int pending = Peek();
-            if (pending == NEWLINE || (!inString && (pending == QUOTE || IsWhitespace(pending))))
+            if (pending == NEWLINE && inString)
+            {
+                SkipWhitespace();
+                if (bEndOfStream)
+                    break;
+
+                pending = Peek();
+            }
+
+            if (!inString && ((pending == QUOTE && !appendQuote) || IsWhitespace(pending)))
                 break;
 
             int ch = Read();
@@ -82,7 +95,7 @@ class WeatherStreamReader
                 {
                     Read();
                     if (!SkipBlockComment())
-                        break; // failed to close block comment
+                        break; // Failed to close block comment
 
                     continue;
                 }
@@ -107,7 +120,8 @@ class WeatherStreamReader
             curLexeme.AppendCharacter(ch);
         }
 
-        return true;
+        // Check if string was closed properly
+        return wasString || curLexeme.Length() ? true : NextLexeme();
     }
 
     string GetLexeme() const

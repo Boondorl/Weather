@@ -237,7 +237,6 @@ class WeatherHandler : StaticEventHandler
 		standardFields.Insert('PrecipitationRateTime', "0");
 		standardFields.Insert('PrecipitationRadius', "1024");
 		standardFields.Insert('PrecipitationHeight', "384");
-		standardFields.Insert('MinPrecipitationRadius', "16");
 		
 		// strings
 		standardFields.Insert('PrecipitationType', PrecipitationType.DEFAULT_STRING);
@@ -290,27 +289,37 @@ class WeatherHandler : StaticEventHandler
 		let reader = WeatherStreamReader.Create("WTHRINFO");
 		while (reader.NextLump())
 		{
-			PrecipitationType pType = ParseType(reader);
-			if (HasError())
+			bool created = false;
+
+			while (reader.NextLexeme())
 			{
-				PrintError();
-				break;
+				created = true;
+
+				PrecipitationType pType = ParseType(reader);
+				if (HasError())
+				{
+					PrintError();
+					break;
+				}
+
+				if (pType)
+					precipTypes.Push(pType);
 			}
 
-			if (pType)
-				precipTypes.Push(pType);
+			if (!created)
+				Console.PrintF("%sWarning: File %s has nothing defined in it", Font.TEXTCOLOR_YELLOW, reader.GetLumpName());
 		}
 	}
 
 	protected PrecipitationType ParseType(WeatherStreamReader reader)
 	{
-		if (!reader.NextLexeme())
+		string word = reader.GetLexeme();
+		if (!word.Length())
 		{
-			Console.PrintF("%sWarning: File %s has nothing defined in it", Font.TEXTCOLOR_YELLOW, reader.GetLumpName());
+			ThrowError("Names of precipitation types cannot be empty", reader.GetLumpName(), reader.GetLine());
 			return null;
 		}
 
-		string word = reader.GetLexeme();
 		if (reserved.CheckKey(word))
 		{
 			string msg = String.Format("Invalid use of keyword %s", word);
