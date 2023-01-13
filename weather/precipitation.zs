@@ -1,13 +1,12 @@
 class MoveTracer : LineTracer
 {
-	bool bHitPortal;
 	bool bHitWater;
 	
 	void Reset()
 	{
-		bHitPortal = bHitWater = false;
 		results.hitType = TRACE_HitNone;
 		results.ffloor = null;
+		bHitWater = false;
 		results.crossedWater = results.crossed3DWater = null;
 	}
 	
@@ -20,13 +19,8 @@ class MoveTracer : LineTracer
 			return TRACE_Stop;
 		}
 		
-		switch (results.HitType)
+		switch (results.hitType)
 		{
-			case TRACE_CrossingPortal:
-				results.hitType = TRACE_HitNone;
-				bHitPortal = true;
-				break;
-				
 			case TRACE_HitWall:
 				if (results.tier == TIER_Middle
 					&& (results.hitLine.flags & Line.ML_TWOSIDED)
@@ -38,7 +32,7 @@ class MoveTracer : LineTracer
 			case TRACE_HitCeiling:
 				if (results.ffloor
 					&& (!(results.ffloor.flags & F3DFloor.FF_EXISTS)
-					|| !(results.ffloor.flags & F3DFloor.FF_SOLID)))
+						|| !(results.ffloor.flags & F3DFloor.FF_SOLID)))
 				{
 					results.ffloor = null;
 					break;
@@ -48,24 +42,27 @@ class MoveTracer : LineTracer
 			
 			case TRACE_HitActor:
 				if (results.hitActor.bSolid
-					&& (results.hitActor != players[consoleplayer].camera
-					|| (players[consoleplayer].camera == players[consoleplayer].mo && (players[consoleplayer].cheats & CF_CHASECAM))))
+					&& (results.hitActor != players[consolePlayer].camera
+						|| (players[consolePlayer].camera == players[consolePlayer].mo
+							&& (players[consolePlayer].cheats & CF_CHASECAM))))
+				{
 					return TRACE_Stop;
+				}
 				break;
 		}
 		
-		results.distance = 0;
         return TRACE_Skip;
     }
 }
 
 class Precipitation : Actor
 {
-	static const double windTab[] = { 5/32., 10/32., 25/32. };
-	const MIN_MAP_UNIT = 1 / 65536.;
+	const MIN_MAP_UNIT = 1 / 65536.0;
+
+	static const double windTab[] = { 5/32.0, 10/32.0, 25/32.0 };
 	
-	private transient MoveTracer moveTracer;
-	private bool bKilled;
+	private transient MoveTracer move;
+	private bool bDetonated;
 	
 	Default
 	{
@@ -84,79 +81,69 @@ class Precipitation : Actor
 	{
 		if (IsFrozen())
 			return;
+
+		if (!move)
+			move = new("MoveTracer");
 		
 		if (bWindThrust)
 		{
-			int special = CurSector.special;
+			int special = curSector.special;
 			switch (special)
 			{
 				// Wind_East
-				case 40:
-				case 41:
-				case 42: 
+				case 40: case 41: case 42: 
 					Thrust(windTab[special-40], 0);
 					break;
 					
 				// Wind_North
-				case 43:
-				case 44:
-				case 45: 
+				case 43: case 44: case 45: 
 					Thrust(windTab[special-43], 90);
 					break;
 					
 				// Wind_South
-				case 46:
-				case 47:
-				case 48: 
+				case 46: case 47: case 48: 
 					Thrust(windTab[special-46], 270);
 					break;
 					
 				// Wind_West
-				case 49:
-				case 50:
-				case 51: 
+				case 49: case 50: case 51: 
 					Thrust(windTab[special-49], 180);
 					break;
 			}
 		}
 		
-		if (!moveTracer)
-			moveTracer = new("MoveTracer");
-		
-		bool bHit;
 		if (!(vel ~== (0,0,0)))
 		{
-			moveTracer.Reset();
-			bHit = moveTracer.Trace(pos, CurSector, vel, 1, TRACE_ReportPortals|TRACE_HitSky) || moveTracer.bHitWater;
-			if (moveTracer.results.hitType == TRACE_HasHitSky)
+			move.Reset();
+			bool res = move.Trace(pos, curSector, vel, 1, TRACE_HitSky) || move.bHitWater;
+			if (move.results.hitType == TRACE_HasHitSky)
 			{
 				Destroy();
 				return;
 			}
 			
-			SetOrigin(moveTracer.results.hitPos - moveTracer.results.hitVector*MIN_MAP_UNIT, true);
-			if (moveTracer.bHitPortal)
-				vel.xy = RotateVector(vel.xy, DeltaAngle(VectorAngle(vel.x, vel.y), moveTracer.results.srcAngleFromTarget));
-			
-			if (moveTracer.bHitWater)
-				bNoGravity = true;
+			SetOrigin(move.results.hitPos - move.results.hitVector.Unit()*MIN_MAP_UNIT, true);
+			vel = move.results.hitVector;
 			
 			CheckPortalTransition();
-		}
-		
-		if (!bNoGravity && pos.z > floorz)
-			vel.z -= GetGravity();
-		
-		if (bHit)
-		{
-			vel = (0,0,0);
-			if (!bKilled)
+
+			if (res)
 			{
-				bKilled = true;
-				SetState(FindState("Death"));
-				return;
+				if (move.bHitWater)
+					bNoGravity = true;
+
+				vel = (0,0,0);
+				if (!bDetonated)
+				{
+					bDetonated = true;
+					SetStateLabel("Death");
+					return;
+				}
 			}
 		}
+		
+		if (!bNoGravity && pos.z > floorZ)
+			vel.z -= GetGravity();
 		
 		if (!CheckNoDelay())
 			return;
@@ -165,7 +152,7 @@ class Precipitation : Actor
 			--tics;
 		while (!tics)
 		{
-			if (!SetState(CurState.NextState))
+			if (!SetState(curState.nextState))
 				return;
 		}
 	}
