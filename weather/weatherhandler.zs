@@ -1,654 +1,416 @@
-class PrecipitationType : Object
+class PrecipitationType
 {
-	private bool bInitialized;
-	
-	private Dictionary fields;
-	private Dictionary defaultFields;
-	private string name;
-	
-	void Initialize(string n)
+	const DEFAULT_STRING = "";
+
+	private Map<Name, string> fields;
+	private Map<Name, string> defaultFields;
+	private Name n;
+
+	static PrecipitationType Create(Name n)
 	{
-		if (bInitialized)
-			return;
-		
-		bInitialized = true;
-		self.name = n;
-		fields = Dictionary.Create();
-		defaultFields = Dictionary.Create();
+		let pt = new("PrecipitationType");
+		pt.n = n;
+
+		return pt;
 	}
 	
-	void SetDefaultsFrom(Dictionary d, bool checkTerminator = false)
+	void Initialize(Map<Name, string> f)
 	{
-		let it = DictionaryIterator.Create(d);
-		while (it.Next())
-		{
-			string v = it.Value();
-			if (checkTerminator && v == "\\0")
-				v = "";
-			
-			defaultFields.Insert(it.Key(), v);
-		}
+		defaultFields.Move(f);
+		Reset();
 	}
 	
 	void SetDefaults()
 	{
-		let it = DictionaryIterator.Create(fields);
-		while (it.Next())
-			defaultFields.Insert(it.Key(), it.Value());
+		defaultFields.Copy(fields);
 	}
 	
 	void Reset()
 	{
-		let it = DictionaryIterator.Create(defaultFields);
-		while (it.Next())
-			fields.Insert(it.Key(), it.Value());
+		fields.Copy(defaultFields);
 	}
 	
 	// Getters
 	
-	string GetName()
+	Name GetName() const
 	{
-		return self.name;
+		return n;
 	}
 	
-	string GetValue(string k)
+	string GetString(Name k)
 	{
-		return fields.At(k);
+		return fields.CheckKey(k) ? fields.Get(k) : DEFAULT_STRING;
 	}
 	
-	bool GetBool(string k)
+	bool GetBool(Name k)
 	{
-		return !!fields.At(k).ToInt();
+		return fields.CheckKey(k) ? !!fields.Get(k).ToInt() : false;
 	}
 	
-	int GetInt(string k)
+	int GetInt(Name k)
 	{
-		return fields.At(k).ToInt();
+		return fields.CheckKey(k) ? fields.Get(k).ToInt() : 0;
 	}
 	
-	double GetFloat(string k)
+	double GetFloat(Name k)
 	{
-		return fields.At(k).ToDouble();
+		return fields.CheckKey(k) ? fields.Get(k).ToDouble() : 0;
 	}
 	
-	string GetDefaultValue(string k)
+	string GetDefaultString(Name k)
 	{
-		return defaultFields.At(k);
+		return defaultFields.CheckKey(k) ? defaultFields.Get(k) : DEFAULT_STRING;
 	}
 	
-	bool GetDefaultBool(string k)
+	bool GetDefaultBool(Name k)
 	{
-		return !!defaultFields.At(k).ToInt();
+		return defaultFields.CheckKey(k) ? !!defaultFields.Get(k).ToInt() : false;
 	}
 	
-	int GetDefaultInt(string k)
+	int GetDefaultInt(Name k)
 	{
-		return defaultFields.At(k).ToInt();
+		return defaultFields.CheckKey(k) ? defaultFields.Get(k).ToInt() : 0;
 	}
 	
-	double GetDefaultFloat(string k)
+	double GetDefaultFloat(Name k)
 	{
-		return defaultFields.At(k).ToDouble();
+		return defaultFields.CheckKey(k) ? defaultFields.Get(k).ToDouble() : 0;
 	}
 	
 	// Wrappers
 	
-	string GetLocalizedString(string k)
+	string GetLocalizedString(Name k)
 	{
-		return StringTable.Localize(GetValue(k));
+		return StringTable.Localize(GetString(k));
 	}
 	
-	string GetDefaultLocalizedString(string k)
+	string GetDefaultLocalizedString(Name k)
 	{
-		return StringTable.Localize(GetDefaultValue(k));
+		return StringTable.Localize(GetDefaultString(k));
 	}
 	
-	int GetTime(string k)
+	int GetTime(Name k)
 	{
-		return ceil(GetFloat(String.Format("%stime", k)) * TICRATE);
+		return ceil(GetFloat(String.Format("%sTime", k)) * gameTicRate);
 	}
 	
-	Color GetColor(string k)
+	Color GetColor(Name k)
 	{
-		return Color(GetInt(String.Format("%scolor", k)));
+		Color col = GetInt(String.Format("%sColor", k));
+		return col;
 	}
 	
-	double GetAlpha(string k)
+	double GetAlpha(Name k)
 	{
-		return GetFloat(String.Format("%salpha", k));
+		return GetFloat(String.Format("%sAlpha", k));
 	}
 	
-	sound GetSound(string k)
+	sound GetSound(Name k)
 	{
-		return sound(GetValue(String.Format("%ssound", k)));
+		return GetString(String.Format("%sSound", k));
 	}
 	
-	double GetVolume(string k)
+	double GetVolume(Name k)
 	{
-		return GetFloat(String.Format("%svolume", k));
+		return GetFloat(String.Format("%sVolume", k));
 	}
 	
-	class<Precipitation> GetType(string k)
+	class<Precipitation> GetType(Name k)
 	{
-		return (class<Precipitation>)(GetValue(String.Format("%stype", k)));
+		return (class<Precipitation>)(GetString(String.Format("%sType", k)));
 	}
 	
 	// Setters
 	
-	void SetValue(string k, string v)
+	void SetString(Name k, string v)
 	{
 		fields.Insert(k, v);
 	}
 	
-	void SetBool(string k, bool v)
+	void SetBool(Name k, bool v)
 	{
 		fields.Insert(k, String.Format("%d", v));
 	}
 	
-	void SetInt(string k, int v)
+	void SetInt(Name k, int v)
 	{
 		fields.Insert(k, String.Format("%d", v));
 	}
 	
-	void SetFloat(string k, double v)
+	void SetFloat(Name k, double v)
 	{
 		fields.Insert(k, String.Format("%f", v));
 	}
 }
 
-struct ParserError
+class WeatherError
 {
-	string message;
-	uint index;
-}
+	private string message;
+	private string lump;
+	private int line;
 
-enum EParserTokens
-{
-	PT_TYPE,
-	PT_OPEN,
-	PT_CLOSE,
-	PT_ASSIGN,
-	PT_BOOLFIELD,
-	PT_INTFIELD,
-	PT_FLOATFIELD,
-	PT_STRINGFIELD,
-	PT_NUMBER,
-	PT_STRING,
-	
-	PT_OPENSTRING = 1000,
-	PT_INVALID
+	static WeatherError Create(string message, string lump, int line)
+	{
+		let we = new("WeatherError");
+		we.message = message;
+		we.lump = lump;
+		we.line = line;
+
+		return we;
+	}
+
+	string ToString() const
+	{
+		return String.Format("\cRError: %s - %s:%d", message, lump, line);
+	}
 }
 
 class WeatherHandler : StaticEventHandler
 {
-	private Dictionary nameTypes;
-	private Dictionary symbols;
-	private Dictionary boolFields;
-	private Dictionary intFields;
-	private Dictionary floatFields;
-	private Dictionary stringFields;
-	
-	private ParserError error;
+	const OPEN_BRACE = "{";
+	const CLOSE_BRACE = "}";
+	const ASSIGN = "=";
+
+	const STR_TRUE = "1";
+	const STR_FALSE = "0";
+
+	private WeatherError error;
+
+	private Map<Name, bool> reserved;
+	private Map<Name, string> defaults;
+	private Map<Name, string> toggleFields;
+	private Map<Name, string> standardFields;
 	
 	Array<PrecipitationType> precipTypes;
-	
-	// Parsing
-	
-	private void SetError(string msg, uint i = 0)
+
+	// Data fields
+
+	protected void CreateLookupTables()
 	{
-		error.message = msg;
-		error.index = i;
-	}
-	
-	private bool HasError()
-	{
-		return error.message != "";
-	}
-	
-	private void ThrowError(string lumpName, Array<string> words)
-	{
-		string e = String.Format("\c[Red]WTHRINFO Error: %s", error.message);
-		if (error.index < words.Size())
-			e.AppendFormat(" [%s]", words[error.index]);
-		e.AppendFormat(" in lump %s", lumpName);
+		// keywords
+		reserved.Insert(OPEN_BRACE, true);
+		reserved.Insert(CLOSE_BRACE, true);
+		reserved.Insert(ASSIGN, true);
+
+		// bools
+		toggleFields.Insert('Stormy', STR_FALSE);
+		toggleFields.Insert('Foggy', STR_FALSE);
+		toggleFields.Insert('FogIndoors', STR_FALSE);
+		toggleFields.Insert('PrecipitationIndoors', STR_FALSE);
+		toggleFields.Insert('ThunderIndoors', STR_FALSE);
+		toggleFields.Insert('LightningIndoors', STR_FALSE);
+		toggleFields.Insert('WindIndoors', STR_FALSE);
+		toggleFields.Insert('FogOnlyIndoors', STR_FALSE);
+		toggleFields.Insert('PrecipitationOnlyIndoors', STR_FALSE);
+		toggleFields.Insert('ThunderOnlyIndoors', STR_FALSE);
+		toggleFields.Insert('LightningOnlyIndoors', STR_FALSE);
+		toggleFields.Insert('WindOnlyIndoors', STR_FALSE);
 		
-		console.printf("%s", e);
-		console.printf("\c[Red]WTHRINFO parsing failed");
-		precipTypes.Clear();
+		// ints
+		standardFields.Insert('PrecipitationAmount', "0");
+		standardFields.Insert('LightningColor', "0xFFFFFFFF");
+		standardFields.Insert('FogColor', "0xFF696969");
+		
+		// floats
+		standardFields.Insert('FogAlpha', "0");
+		standardFields.Insert('FogFadeInTime', "0.1");
+		standardFields.Insert('FogFadeOutTime', "0.1");
+		standardFields.Insert('MinPrecipitationVolume', "0.3");
+		standardFields.Insert('MaxPrecipitationVolume', "1");
+		standardFields.Insert('PrecipitationVolumeFadeInTime', "0.2");
+		standardFields.Insert('PrecipitationVolumeFadeOutTime', "1");
+		standardFields.Insert('MinWindVolume', "0.3");
+		standardFields.Insert('MaxWindVolume', "1");
+		standardFields.Insert('WindVolumeFadeInTime', "0.2");
+		standardFields.Insert('WindVolumeFadeOutTime', "1");
+		standardFields.Insert('MinThunderVolume', "0.3");
+		standardFields.Insert('MaxThunderVolume', "1");
+		standardFields.Insert('ThunderVolumeFadeInTime', "0.2");
+		standardFields.Insert('ThunderVolumeFadeOutTime', "1");
+		standardFields.Insert('MinThunderTime', "15");
+		standardFields.Insert('MaxThunderTime', "30");
+		standardFields.Insert('LightningAlpha', "0");
+		standardFields.Insert('MinLightningTime', "15");
+		standardFields.Insert('MaxLightningTime', "30");
+		standardFields.Insert('LightningFadeInTime', "0.02");
+		standardFields.Insert('LightningFadeOutTime', "0.1");
+		standardFields.Insert('PrecipitationRateTime', "0");
+		standardFields.Insert('PrecipitationRadius', "1024");
+		standardFields.Insert('PrecipitationHeight', "384");
+		standardFields.Insert('MinPrecipitationRadius', "16");
+		
+		// strings
+		standardFields.Insert('PrecipitationType', PrecipitationType.DEFAULT_STRING);
+		standardFields.Insert('PrecipitationTag', PrecipitationType.DEFAULT_STRING);
+		standardFields.Insert('PrecipitationSound', PrecipitationType.DEFAULT_STRING);
+		standardFields.Insert('WindSound', PrecipitationType.DEFAULT_STRING);
+		standardFields.Insert('ThunderSound', PrecipitationType.DEFAULT_STRING);
+	}
+
+	protected void GenerateDefaults()
+	{
+		defaults.Clear();
+		AppendMap(defaults, toggleFields);
+		AppendMap(defaults, standardFields);
+	}
+
+	private void AppendMap(out Map<Name, string> props, Map<Name, string> append)
+	{
+		MapIterator<Name, string> it;
+		it.Init(append);
+
+		while (it.Next())
+			props.Insert(it.GetKey(), it.GetValue());
 	}
 	
+	// Error handling
+
+	protected clearscope bool HasError() const
+	{
+		return error != null;
+	}
+
+	protected clearscope void PrintError() const
+	{
+		Console.PrintF("%s", error.ToString());
+	}
+
+	protected void ThrowError(string msg, string lump, int line)
+	{
+		error = WeatherError.Create(msg, lump, line);
+	}
+
+	// Parsing
+
 	override void OnRegister()
 	{
 		CreateLookupTables();
+		GenerateDefaults();
 		
-		int lumpNum = 0;
-		do
+		let reader = WeatherStreamReader.Create("WTHRINFO");
+		while (reader.NextLump())
 		{
-			lumpNum = Wads.FindLump("WTHRINFO", lumpNum);
-			if (lumpNum < 0)
+			PrecipitationType pType = ParseType(reader);
+			if (HasError())
+			{
+				PrintError();
 				break;
-			
-			string lump = Wads.ReadLump(lumpNum);
-			Array<string> words;
-			Array<int> tokens;
-			
-			// Remove line comments
-			int cInd = 0;
-			do
-			{
-				cInd = lump.IndexOf("//", cInd);
-				if (cInd < 0)
-					break;
-				
-				int end = lump.IndexOf("\n", cInd+2);
-				if (end < 0)
-					end = lump.Length();
-				
-				lump.Remove(cInd, (end+1)-cInd);
 			}
-			while (true);
-			
-			// Remove block comments
-			cInd = 0;
-			do
-			{
-				cInd = lump.IndexOf("/*", cInd);
-				if (cInd < 0)
-					break;
-				
-				int end = lump.IndexOf("*/", cInd+2);
-				if (end < 0)
-				{
-					SetError("Dangling block comment");
-					break;
-				}
-				
-				lump.Remove(cInd, (end+2)-cInd);
-			}
-			while (true);
-			
-			if (HasError())
-			{
-				ThrowError(Wads.GetLumpFullName(lumpNum), words);
-				return;
-			}
-			
-			// Sanitize
-			lump.Replace("\t", " "); 
-			lump.Replace("\r", " ");
-			lump.Replace("\n", " ");
-			lump.Split(words, " ", TOK_SKIPEMPTY);
-			
-			Tokenize(words, tokens);
-			Parse(tokens);
-			if (HasError())
-			{
-				ThrowError(Wads.GetLumpFullName(lumpNum), words);
-				return;
-			}
-			
-			CreatePrecipitation(words);
-			++lumpNum;
-		} while (true);
+
+			if (pType)
+				precipTypes.Push(pType);
+		}
 	}
-	
-	// Look up tables for each data field
-	void CreateLookupTables()
+
+	protected PrecipitationType ParseType(WeatherStreamReader reader)
 	{
-		nameTypes = Dictionary.Create();
-		nameTypes.Insert("precipitation", String.Format("%d", PT_TYPE));
-		
-		symbols = Dictionary.Create();
-		symbols.Insert("{", String.Format("%d", PT_OPEN));
-		symbols.Insert("}", String.Format("%d", PT_CLOSE));
-		symbols.Insert("=", String.Format("%d", PT_ASSIGN));
-		
-		boolFields = Dictionary.Create();
-		boolFields.Insert("stormy", "0");
-		boolFields.Insert("foggy", "0");
-		boolFields.Insert("fogindoors", "0");
-		boolFields.Insert("precipitationindoors", "0");
-		boolFields.Insert("thunderindoors", "0");
-		boolFields.Insert("lightningindoors", "0");
-		boolFields.Insert("windindoors", "0");
-		boolFields.Insert("fogonlyindoors", "0");
-		boolFields.Insert("precipitationonlyindoors", "0");
-		boolFields.Insert("thunderonlyindoors", "0");
-		boolFields.Insert("lightningonlyindoors", "0");
-		boolFields.Insert("windonlyindoors", "0");
-		
-		intFields = Dictionary.Create();
-		intFields.Insert("precipitationamount", "0");
-		intFields.Insert("lightningcolor", "0xFFFFFFFF");
-		intFields.Insert("fogcolor", "0xFF696969");
-		
-		floatFields = Dictionary.Create();
-		floatFields.Insert("fogalpha", "0");
-		floatFields.Insert("fogfadeintime", "0.1");
-		floatFields.Insert("fogfadeouttime", "0.1");
-		floatFields.Insert("minprecipitationvolume", "0.3");
-		floatFields.Insert("maxprecipitationvolume", "1");
-		floatFields.Insert("precipitationvolumefadeintime", "0.2");
-		floatFields.Insert("precipitationvolumefadeouttime", "1");
-		floatFields.Insert("minwindvolume", "0.3");
-		floatFields.Insert("maxwindvolume", "1");
-		floatFields.Insert("windvolumefadeintime", "0.2");
-		floatFields.Insert("windvolumefadeouttime", "1");
-		floatFields.Insert("minthundervolume", "0.3");
-		floatFields.Insert("maxthundervolume", "1");
-		floatFields.Insert("thundervolumefadeintime", "0.2");
-		floatFields.Insert("thundervolumefadeouttime", "1");
-		floatFields.Insert("minthundertime", "15");
-		floatFields.Insert("maxthundertime", "30");
-		floatFields.Insert("lightningalpha", "0");
-		floatFields.Insert("minlightningtime", "15");
-		floatFields.Insert("maxlightningtime", "30");
-		floatFields.Insert("lightningfadeintime", "0.02");
-		floatFields.Insert("lightningfadeouttime", "0.1");
-		floatFields.Insert("precipitationratetime", "0");
-		floatFields.Insert("precipitationradius", "1024");
-		floatFields.Insert("precipitationheight", "384");
-		
-		stringFields = Dictionary.Create();
-		stringFields.Insert("precipitationtype", "\\0");
-		stringFields.Insert("precipitationtag", "\\0");
-		stringFields.Insert("precipitationsound", "\\0");
-		stringFields.Insert("windsound", "\\0");
-		stringFields.Insert("thundersound", "\\0");
-	}
-	
-	// Convert lump strings into tokens
-	void Tokenize(out Array<string> words, out Array<int> tokens)
-	{
-		bool open = false;
-		bool dontSpace = false;
-		for (uint i = 0; i < words.Size(); ++i)
+		if (!reader.NextLexeme())
 		{
-			string word = words[i].MakeLower();
-			if (word == "")
+			Console.PrintF("\cYWarning: File %s has nothing defined in it", reader.GetLumpName());
+			return null;
+		}
+
+		string word = reader.GetLexeme();
+		if (!word.Length())
+		{
+			ThrowError("No name given to precipitation type", reader.GetLumpName(), reader.GetLine());
+			return null;
+		}
+
+		PrecipitationType pType = FindType(word);
+		if (!pType)
+			pType = PrecipitationType.Create(word);
+		
+		if (!reader.NextLexeme())
+		{
+			ThrowError("Unexpected end of file", reader.GetLumpName(), reader.GetLine());
+			return null;
+		}
+
+		word = reader.GetLexeme();
+		if (word != OPEN_BRACE)
+		{
+			ThrowError("Failed to open type block", reader.GetLumpName(), reader.GetLine());
+			return null;
+		}
+
+		if (!ParseBody(reader, pType))
+			return null;
+
+		word = reader.GetLexeme();
+		if (word != CLOSE_BRACE)
+		{
+			ThrowError("Failed to close type block", reader.GetLumpName(), reader.GetLine());
+			return null;
+		}
+
+		return pType;
+	}
+
+	private bool ParseBody(WeatherStreamReader reader, PrecipitationType pType)
+	{
+		Map<Name, string> vals;
+		vals.Copy(defaults);
+
+		while (reader.NextLexeme())
+		{
+			string word = reader.GetLexeme();
+			if (word == CLOSE_BRACE)
+				break;
+
+			if (reserved.CheckKey(word))
 			{
-				words.Delete(i--);
-				continue;
+				string msg = String.Format("Tried to use keyword %s in wrong place", word);
+				ThrowError(msg, reader.GetLumpName(), reader.GetLine());
+				return false;
 			}
-			
-			// Catch strings
-			int lInd = word.IndexOf("\"");
-			if (lInd >= 0)
+			else if (toggleFields.CheckKey(word))
 			{
-				int rInd = word.RightIndexOf("\"");
-				uint count = 0;
-				int index = 0;
-				do
+				vals.Insert(word, STR_TRUE);
+			}
+			else if (standardFields.CheckKey(word))
+			{
+				if (!reader.NextLexeme())
 				{
-					index = word.IndexOf("\"", index);
-					if (index < 0)
-						break;
-					
-					++count;
-					++index;
-				} while (true);
-				
-				if (count > 2
-					|| (!open && (lInd > 0 || (count > 1 && rInd < word.Length()-1)))
-					|| (open && (count > 1 || rInd < word.Length()-1)))
-				{
-					// Invalid
-					open = true;
-					break;
+					ThrowError("Unexpected end of file", reader.GetLumpName(), reader.GetLine());
+					return false;
 				}
-				else
+
+				if (reader.GetLexeme() != ASSIGN)
 				{
-					if (count == 2)
-					{
-						tokens.Insert(0, PT_STRING);
-						continue;
-					}
-					else if (!open)
-					{
-						tokens.Insert(0, PT_STRING);
-						open = true;
-						dontSpace = word.Length() == 1;
-						continue;
-					}
-					else
-					{
-						open = false;
-						if (word.Length() > 1)
-							words[i-1].AppendFormat(" %s", words[i]);
-						else
-							words[i-1].AppendFormat("%s", words[i]);
-						
-						words.Delete(i--);
-						continue;
-					}
+					ThrowError("Must use = when assigning a property", reader.GetLumpName(), reader.GetLine());
+					return false;
 				}
+
+				if (!reader.NextLexeme())
+				{
+					ThrowError("Unexpected end of file", reader.GetLumpName(), reader.GetLine());
+					return false;
+				}
+
+				vals.Insert(word, reader.GetLexeme());
 			}
-			
-			if (open)
-			{
-				if (dontSpace)
-					words[i-1].AppendFormat("%s", words[i]);
-				else
-					words[i-1].AppendFormat(" %s", words[i]);
-				
-				dontSpace = false;
-				words.Delete(i--);
-				continue;
-			}
-			
-			// Tokenize normally
-			if (nameTypes.At(word) != "")
-				tokens.Insert(0, PT_TYPE);
-			else if (symbols.At(word) != "")
-				tokens.Insert(0, symbols.At(word).ToInt());
-			else if (boolFields.At(word) != "")
-				tokens.Insert(0, PT_BOOLFIELD);
-			else if (intFields.At(word) != "")
-				tokens.Insert(0, PT_INTFIELD);
-			else if (floatFields.At(word) != "")
-				tokens.Insert(0, PT_FLOATFIELD);
-			else if (stringFields.At(word) != "")
-				tokens.Insert(0, PT_STRINGFIELD);
-			else if (tokens.Size() >= 2 && tokens[0] == PT_ASSIGN && (tokens[1] == PT_INTFIELD || tokens[1] == PT_FLOATFIELD))
-				tokens.Insert(0, PT_NUMBER);
 			else
-				tokens.Insert(0, PT_INVALID);
-		}
-		
-		if (open)
-			tokens.Insert(0, PT_OPENSTRING);
-	}
-	
-	// Make sure lump syntax is valid
-	void Parse(Array<int> tokens)
-	{
-		Array<int> traversed;
-		bool open = false;
-		uint declarationIndex = 0;
-		do
-		{
-			int token = GetToken(tokens);
-			if (token < 0)
-				break;
-			
-			int prev = -1;
-			int assigned = -1;
-			uint s = traversed.Size();
-			if (s)
 			{
-				prev = traversed[s-1];
-				if (s > 1)
-					assigned = traversed[s-2];
-			}
-			
-			traversed.Push(token);
-			
-			if (token == PT_OPENSTRING)
-			{
-				SetError("Invalid string syntax", traversed.Size()-1);
-				break;
-			}
-			else if (token == PT_INVALID)
-			{
-				SetError("Unknown identifier", traversed.Size()-1);
-				break;
-			}
-			
-			switch(token)
-			{
-				case PT_TYPE:
-					if (open)
-						SetError("Defined new precipitation type before closing current one", traversed.Size());
-					open = true;
-					declarationIndex = traversed.Size();
-					break;
-					
-				case PT_OPEN:
-					if (prev != PT_STRING || assigned != PT_TYPE)
-						SetError("Invalid opening brace", traversed.Size()-1);
-					break;
-					
-				case PT_CLOSE:
-					if (prev != PT_OPEN && !IsDataType(prev))
-						SetError("Invalid closing brace", traversed.Size()-1);
-					open = false;
-					break;
-					
-				case PT_ASSIGN:
-					if (!IsDataField(prev))
-						SetError("Attempt to assign to an invalid field", traversed.Size()-2);
-					break;
-					
-				case PT_NUMBER:
-					if (prev != PT_ASSIGN || (assigned != PT_INTFIELD && assigned != PT_FLOATFIELD))
-						SetError("Invalid numeric declaration", traversed.Size()-1);
-					break;
-					
-				case PT_STRING:
-					if (prev != PT_TYPE && (prev != PT_ASSIGN || assigned != PT_STRINGFIELD))
-						SetError("Invalid string declaration", traversed.Size()-1);
-					break;
-					
-				case PT_BOOLFIELD:
-				case PT_INTFIELD:
-				case PT_FLOATFIELD:
-				case PT_STRINGFIELD:
-					if (prev != PT_OPEN && !IsDataType(prev))
-						SetError("Invalid field declaration", traversed.Size()-1);
-					break;
-			}
-			
-			if (HasError())
-				break;
-		} while (tokens.Size() > 0);
-		
-		if (open && !HasError())
-			SetError("Precipitation declaration not closed correctly", declarationIndex);
-	}
-	
-	bool IsDataType(int token)
-	{
-		switch(token)
-		{
-			case PT_BOOLFIELD:
-			case PT_NUMBER:
-			case PT_STRING:
-				return true;
-		}
-		
-		return false;
-	}
-	
-	bool IsDataField(int token)
-	{
-		switch(token)
-		{
-			case PT_INTFIELD:
-			case PT_FLOATFIELD:
-			case PT_STRINGFIELD:
-				return true;
-		}
-		
-		return false;
-	}
-	
-	int GetToken(out Array<int> tokens)
-	{
-		uint s = tokens.Size();
-		if (!s)
-			return -1;
-		
-		int t = tokens[s-1];
-		tokens.Pop();
-		
-		return t;
-	}
-	
-	// Generate precipitation objects from lump
-	// Not using a dictionary in the object because ZScript only accepts strings
-	// leading to constant conversions from string -> int/double/bool
-	void CreatePrecipitation(Array<string> words)
-	{
-		PrecipitationType cur;
-		for (uint i = 0; i < words.Size(); ++i)
-		{
-			string word = words[i].MakeLower();
-			
-			if (nameTypes.At(word) != "")
-			{
-				if (word == "precipitation")
-				{
-					if (cur)
-						cur.SetDefaults();
-					
-					++i;
-					string val = words[i].Mid(1, words[i].Length()-2);
-					cur = Find(val);
-					if (!cur)
-					{
-						cur = new("PrecipitationType");
-						cur.Initialize(val);
-						precipTypes.Push(cur);
-					}
-					
-					cur.SetDefaultsFrom(boolFields);
-					cur.SetDefaultsFrom(intFields);
-					cur.SetDefaultsFrom(floatFields);
-					cur.SetDefaultsFrom(stringFields, true);
-					cur.Reset();
-				}
-			}
-			else if (boolFields.At(word) != "")
-				cur.SetValue(word, "1");
-			else if (intFields.At(word) != "")
-			{
-				i += 2;
-				cur.SetValue(word, words[i]);
-			}
-			else if (floatFields.At(word) != "")
-			{
-				i += 2;
-				cur.SetValue(word, words[i]);
-			}
-			else if (stringFields.At(word) != "")
-			{
-				i += 2;
-				cur.SetValue(word, words[i].Mid(1, words[i].Length()-2));
+				string msg = String.Format("Unknown word %s used", word);
+				ThrowError(msg, reader.GetLumpName(), reader.GetLine());
+				return false;
 			}
 		}
-		
-		if (cur)
-			cur.SetDefaults();
+
+		pType.Initialize(vals);
+
+		return true;
 	}
 	
-	PrecipitationType Find(string name)
+	clearscope PrecipitationType FindType(Name n) const
 	{
-		if (name == "")
+		if (n == 'None')
 			return null;
 		
-		for (uint i = 0; i < precipTypes.Size(); ++i)
+		for (int i = 0; i < precipTypes.Size(); ++i)
 		{
-			if (precipTypes[i].GetName() ~== name)
+			if (precipTypes[i].GetName() == n)
 				return precipTypes[i];
 		}
 		

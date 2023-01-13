@@ -1,3 +1,4 @@
+// TODO: Finally traverse through these like normal
 class PortalTracer : LineTracer
 {
 	Line portal;
@@ -252,7 +253,7 @@ class Weather : Actor
 			}
 			else
 			{
-				for (uint i = 0; i < sec.Get3DFloorCount(); ++i)
+				for (int i = 0; i < sec.Get3DFloorCount(); ++i)
 				{
 					let ffloor = sec.Get3DFloor(i);
 					if (!(ffloor.flags & F3DFloor.FF_EXISTS)
@@ -273,7 +274,7 @@ class Weather : Actor
 	
 	private bool In3DFloor(Sector sec, Vector3 spot)
 	{
-		for (uint i = 0; i < sec.Get3DFloorCount(); ++i)
+		for (int i = 0; i < sec.Get3DFloorCount(); ++i)
 		{
 			let ffloor = sec.Get3DFloor(i);
 			if (!(ffloor.flags & F3DFloor.FF_EXISTS) || !(ffloor.flags & F3DFloor.FF_SOLID))
@@ -633,7 +634,7 @@ class Weather : Actor
 		if (!wh)
 			return null;
 		
-		return wh.Find(name);
+		return wh.FindType(name);
 	}
 	
 	static void SetPrecipitationType(string name)
@@ -670,7 +671,7 @@ class Weather : Actor
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			wthr.current.SetValue("precipitationtag", t);
+			wthr.current.SetString("precipitationtag", t);
 	}
 	
 	static void SetPrecipitationTypeDefaults()
@@ -691,7 +692,7 @@ class Weather : Actor
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			wthr.current.SetValue("precipitationtype", cls);
+			wthr.current.SetString("precipitationtype", cls);
 	}
 	
 	static void SetPrecipitationProperties(double rate = -1, int amt = -1, double rad = -1, double h = -1, int indoors = -1, int indoorsOnly = -1)
@@ -718,7 +719,7 @@ class Weather : Actor
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			wthr.current.SetValue("precipitationsound", s);
+			wthr.current.SetString("precipitationsound", s);
 	}
 	
 	static void SetPrecipitationVolume(double mi = -1, double ma = -1, double fadeIn = -1, double fadeOut = -1)
@@ -753,7 +754,7 @@ class Weather : Actor
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			wthr.current.SetValue("windsound", s);
+			wthr.current.SetString("windsound", s);
 	}
 	
 	static void SetWindVolume(double mi = -1, double ma = -1, double fadeIn = -1, double fadeOut = -1)
@@ -807,7 +808,7 @@ class Weather : Actor
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			wthr.current.SetValue("thundersound", s);
+			wthr.current.SetString("thundersound", s);
 	}
 	
 	static void SetThunderVolume(double mi = -1, double ma = -1, double fadeIn = -1, double fadeOut = -1)
@@ -889,7 +890,7 @@ class Weather : Actor
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			return localized ? wthr.current.GetLocalizedString(k) : wthr.current.GetValue(k);
+			return localized ? wthr.current.GetLocalizedString(k) : wthr.current.GetString(k);
 		
 		return "";
 	}
@@ -925,7 +926,7 @@ class Weather : Actor
 	{
 		let wthr = Weather.Get();
 		if (wthr && wthr.current)
-			return localized ? wthr.current.GetDefaultLocalizedString(k) : wthr.current.GetDefaultValue(k);
+			return localized ? wthr.current.GetDefaultLocalizedString(k) : wthr.current.GetDefaultString(k);
 		
 		return "";
 	}
