@@ -279,6 +279,11 @@ class WeatherHandler : StaticEventHandler
 		error = WeatherError.Create(msg, lump, line);
 	}
 
+	protected void ClearError()
+	{
+		error = null;
+	}
+
 	// Parsing
 
 	override void OnRegister()
@@ -290,15 +295,18 @@ class WeatherHandler : StaticEventHandler
 		while (reader.NextLump())
 		{
 			bool created = false;
+			ClearError();
 
 			while (reader.NextLexeme())
 			{
 				created = true;
 
 				PrecipitationType pType = ParseType(reader);
-				if (HasError())
+				if (reader.HasError() || HasError())
 				{
-					PrintError();
+					if (!reader.HasError())
+						PrintError();
+
 					break;
 				}
 
@@ -306,8 +314,15 @@ class WeatherHandler : StaticEventHandler
 					precipTypes.Push(pType);
 			}
 
+			if (reader.HasError())
+			{
+				let [msg, line] = reader.GetError();
+				ThrowError(msg, reader.GetLumpName(), line);
+				PrintError();
+			}
+
 			if (!created)
-				Console.PrintF("%sWarning: File %s has nothing defined in it", Font.TEXTCOLOR_YELLOW, reader.GetLumpName());
+				Console.PrintF("%sWarning: File %s is empty", Font.TEXTCOLOR_YELLOW, reader.GetLumpName());
 		}
 	}
 
@@ -340,7 +355,7 @@ class WeatherHandler : StaticEventHandler
 		word = reader.GetLexeme();
 		if (word != OPEN_BRACE)
 		{
-			string msg = String.Format("Failed to open block for type %s", pType.GetName());
+			string msg = String.Format("Expected %s after type %s; got %s", OPEN_BRACE, pType.GetName(), word);
 			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
 			return null;
 		}
@@ -351,7 +366,7 @@ class WeatherHandler : StaticEventHandler
 		word = reader.GetLexeme();
 		if (word != CLOSE_BRACE)
 		{
-			string msg = String.Format("Failed to close block for type %s", pType.GetName());
+			string msg = String.Format("Expected %s at end of type %s; got end of file", CLOSE_BRACE, pType.GetName());
 			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
 			return null;
 		}
@@ -391,7 +406,8 @@ class WeatherHandler : StaticEventHandler
 
 				if (reader.GetLexeme() != ASSIGN)
 				{
-					ThrowError("Must use = when assigning a property", reader.GetLumpName(), line);
+					string msg = String.Format("Expected %s; got %s", ASSIGN, reader.GetLexeme());
+					ThrowError(msg, reader.GetLumpName(), line);
 					return false;
 				}
 
@@ -401,11 +417,19 @@ class WeatherHandler : StaticEventHandler
 					return false;
 				}
 
-				vals.Insert(word, reader.GetLexeme());
+				string val = reader.GetLexeme();
+				if (reserved.CheckKey(val))
+				{
+					string msg = String.Format("Invalid use of keyword %s", val);
+					ThrowError(msg, reader.GetLumpName(), reader.GetLine());
+					return false;
+				}
+
+				vals.Insert(word, val);
 			}
 			else
 			{
-				string msg = String.Format("Unknown word %s used", word);
+				string msg = String.Format("Unknown word %s", word);
 				ThrowError(msg, reader.GetLumpName(), reader.GetLine());
 				return false;
 			}

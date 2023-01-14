@@ -9,6 +9,10 @@ class WeatherStreamReader
     const STAR = 0x2A;
     const BACK_SLASH = 0x5C;
 
+    private bool bError;
+    private string errorMessage;
+    private int errorLine;
+
     private string lumpName;
     private int curLump;
     private string fullName;
@@ -37,6 +41,10 @@ class WeatherStreamReader
         line = 0;
         curLexeme = EMPTY_STRING;
 
+        bError = false;
+        errorMessage = EMPTY_STRING;
+        errorLine = 0;
+
         curLump = Wads.FindLump(lumpName, curLump);
         if (curLump == NOT_FOUND)
             return false;
@@ -57,6 +65,8 @@ class WeatherStreamReader
 
         if (bEndOfStream)
             return false;
+
+        int startingLine = line;
 
         bool inString, wasString;
         inString = wasString = (Peek() == QUOTE);
@@ -95,7 +105,10 @@ class WeatherStreamReader
                 {
                     Read();
                     if (!SkipBlockComment())
-                        break; // Failed to close block comment
+                    {
+                        ThrowError("Block comment was not closed", startingLine);
+                        return false;
+                    }
 
                     continue;
                 }
@@ -120,7 +133,13 @@ class WeatherStreamReader
             curLexeme.AppendCharacter(ch);
         }
 
-        // Check if string was closed properly
+        if (inString)
+        {
+            ThrowError("String was not closed", startingLine);
+            return false;
+        }
+
+        // Ignore empty lexemes
         return wasString || curLexeme.Length() ? true : NextLexeme();
     }
 
@@ -159,6 +178,23 @@ class WeatherStreamReader
             return 0;
 
         return stream.GetNextCodePoint(nextIndex);
+    }
+
+    bool HasError() const
+    {
+        return bError;
+    }
+
+    string, int GetError() const
+    {
+        return errorMessage, errorLine;
+    }
+
+    private void ThrowError(string msg, int l)
+    {
+        bError = true;
+        errorMessage = msg;
+        errorLine = l;
     }
 
     private void SkipWhitespace()
