@@ -1,7 +1,5 @@
 class PrecipitationType
 {
-	const DEFAULT_STRING = "";
-
 	private Map<Name, string> fields;
 	private Map<Name, string> defaultFields;
 	private Name n;
@@ -39,42 +37,42 @@ class PrecipitationType
 	
 	string GetString(Name k)
 	{
-		return fields.CheckKey(k) ? fields.Get(k) : DEFAULT_STRING;
+		return fields.Get(k);
 	}
 	
 	bool GetBool(Name k)
 	{
-		return fields.CheckKey(k) ? !!fields.Get(k).ToInt() : false;
+		return !!fields.Get(k).ToInt();
 	}
 	
 	int GetInt(Name k)
 	{
-		return fields.CheckKey(k) ? fields.Get(k).ToInt() : 0;
+		return fields.Get(k).ToInt();
 	}
 	
 	double GetFloat(Name k)
 	{
-		return fields.CheckKey(k) ? fields.Get(k).ToDouble() : 0;
+		return fields.Get(k).ToDouble();
 	}
 	
 	string GetDefaultString(Name k)
 	{
-		return defaultFields.CheckKey(k) ? defaultFields.Get(k) : DEFAULT_STRING;
+		return defaultFields.Get(k);
 	}
 	
 	bool GetDefaultBool(Name k)
 	{
-		return defaultFields.CheckKey(k) ? !!defaultFields.Get(k).ToInt() : false;
+		return !!defaultFields.Get(k).ToInt();
 	}
 	
 	int GetDefaultInt(Name k)
 	{
-		return defaultFields.CheckKey(k) ? defaultFields.Get(k).ToInt() : 0;
+		return defaultFields.Get(k).ToInt();
 	}
 	
 	double GetDefaultFloat(Name k)
 	{
-		return defaultFields.CheckKey(k) ? defaultFields.Get(k).ToDouble() : 0;
+		return defaultFields.Get(k).ToDouble();
 	}
 	
 	// Wrappers
@@ -173,6 +171,7 @@ class WeatherHandler : StaticEventHandler
 
 	const STR_TRUE = "1";
 	const STR_FALSE = "0";
+	const DEFAULT_STRING = "";
 
 	private WeatherError error;
 
@@ -239,11 +238,11 @@ class WeatherHandler : StaticEventHandler
 		standardFields.Insert('PrecipitationHeight', "384");
 		
 		// strings
-		standardFields.Insert('PrecipitationType', PrecipitationType.DEFAULT_STRING);
-		standardFields.Insert('PrecipitationTag', PrecipitationType.DEFAULT_STRING);
-		standardFields.Insert('PrecipitationSound', PrecipitationType.DEFAULT_STRING);
-		standardFields.Insert('WindSound', PrecipitationType.DEFAULT_STRING);
-		standardFields.Insert('ThunderSound', PrecipitationType.DEFAULT_STRING);
+		standardFields.Insert('PrecipitationType', DEFAULT_STRING);
+		standardFields.Insert('PrecipitationTag', DEFAULT_STRING);
+		standardFields.Insert('PrecipitationSound', DEFAULT_STRING);
+		standardFields.Insert('WindSound', DEFAULT_STRING);
+		standardFields.Insert('ThunderSound', DEFAULT_STRING);
 	}
 
 	protected void GenerateDefaults()

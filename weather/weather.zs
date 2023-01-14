@@ -630,7 +630,7 @@ class Weather : Actor
 	{
 		let wthr = Weather.Get();
 		if (!wthr || !wthr.current)
-			return PrecipitationType.DEFAULT_STRING;
+			return WeatherHandler.DEFAULT_STRING;
 		
 		string t = wthr.current.GetLocalizedString('PrecipitationTag');
 		if (!t.Length())
@@ -864,7 +864,7 @@ class Weather : Actor
 		if (wthr && wthr.current)
 			return localized ? wthr.current.GetLocalizedString(k) : wthr.current.GetString(k);
 		
-		return PrecipitationType.DEFAULT_STRING;
+		return WeatherHandler.DEFAULT_STRING;
 	}
 	
 	static bool GetBoolProperty(Name k)
@@ -900,7 +900,7 @@ class Weather : Actor
 		if (wthr && wthr.current)
 			return localized ? wthr.current.GetDefaultLocalizedString(k) : wthr.current.GetDefaultString(k);
 		
-		return PrecipitationType.DEFAULT_STRING;
+		return WeatherHandler.DEFAULT_STRING;
 	}
 	
 	static bool GetDefaultBoolProperty(Name k)
