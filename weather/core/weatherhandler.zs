@@ -89,7 +89,7 @@ class PrecipitationType
 	
 	int GetTime(Name k)
 	{
-		return ceil(GetFloat(String.Format("%sTime", k)) * gameTicRate);
+		return int(ceil(GetFloat(String.Format("%sTime", k)) * gameTicRate));
 	}
 	
 	Color GetColor(Name k)

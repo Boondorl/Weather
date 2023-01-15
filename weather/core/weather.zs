@@ -175,7 +175,7 @@ class Weather : Actor
 				if (lightningTimer <= 0)
 					lightningTimer = Random[Weather](current.GetTime('MinLightning'), current.GetTime('MaxLightning'));
 				
-				lightningColorTimer = wasStormy ? ceil(gameTicRate * FADE_TRANSITION) : -1;
+				lightningColorTimer = wasStormy ? int(ceil(gameTicRate * FADE_TRANSITION)) : -1;
 			}
 			else
 			{
@@ -186,7 +186,7 @@ class Weather : Actor
 			if (!current.GetType('Precipitation'))
 				rateTimer = 0;
 			
-			fogColorTimer = (wasFoggy && current.GetBool('Foggy')) ? ceil(gameTicRate * FADE_TRANSITION) : -1;
+			fogColorTimer = (wasFoggy && current.GetBool('Foggy')) ? int(ceil(gameTicRate * FADE_TRANSITION)) : -1;
 		}
 		else
 		{
@@ -498,7 +498,7 @@ class Weather : Actor
 			bool only = current.GetBool('PrecipitationOnlyIndoors');
 			bool inside = only || current.GetBool('PrecipitationIndoors');
 
-			int amt = ceil(current.GetInt('PrecipitationAmount') * multi);
+			int amt = int(ceil(current.GetInt('PrecipitationAmount') * multi));
 			for (int i = 0; i < amt; ++i)
 			{
 				Vector2 dir = FRandom[Weather](0, 360).ToVector();
