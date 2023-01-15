@@ -193,7 +193,7 @@ class Weather : Actor
 		}
 	}
 	
-	private Vector2 GetCeilingPortalOffset(Sector sec, double z)
+	private clearscope Vector2 GetCeilingPortalOffset(Sector sec, double z) const
 	{
 		Vector2 ofs;
 		double portZ = sec.GetPortalPlaneZ(Sector.ceiling);
@@ -210,7 +210,7 @@ class Weather : Actor
 		return ofs;
 	}
 	
-	private Vector2, Vector2 VisPortalOffset(Line origin, Line dest, Vector2 dir)
+	private clearscope Vector2, Vector2 VisPortalOffset(Line origin, Line dest, Vector2 dir) const
 	{
 		Vector2 ofs;
 		if (!origin || !dest)
@@ -224,7 +224,7 @@ class Weather : Actor
 		return ofs, dir;
 	}
 	
-	private bool, double CheckSky(Sector sec, Vector2 spot, double z)
+	private clearscope bool, double CheckSky(Sector sec, Vector2 spot, double z) const
 	{
 		let [ceilZ, ceilSec] = sec.HighestCeilingAt(spot);
 		bool sky = (ceilSec.GetTexture(Sector.ceiling) == skyFlatNum
@@ -233,7 +233,7 @@ class Weather : Actor
 		return sky, ceilZ;
 	}
 	
-	private bool InLiquid(Sector sec, Vector3 spot)
+	private clearscope bool InLiquid(Sector sec, Vector3 spot) const
 	{
 		if (sec.moreFlags & Sector.SECMF_UNDERWATER)
 			return true;
@@ -270,7 +270,7 @@ class Weather : Actor
 		return false;
 	}
 	
-	private bool In3DFloor(Sector sec, Vector3 spot)
+	private clearscope bool In3DFloor(Sector sec, Vector3 spot) const
 	{
 		for (int i = 0; i < sec.Get3DFloorCount(); ++i)
 		{
@@ -597,13 +597,13 @@ class Weather : Actor
 	
 	// General helpers and ACS ScriptCall functionality
 	
-	static Weather Get()
+	static clearscope Weather Get()
 	{
 		let it = ThinkerIterator.Create("Weather", MAX_STATNUM);
 		return Weather(it.Next());
 	}
 	
-	static PrecipitationType GetPrecipitationType(Name n)
+	static clearscope PrecipitationType GetPrecipitationType(Name n)
 	{
 		let wh = WeatherHandler(StaticEventHandler.Find("WeatherHandler"));
 		return wh ? wh.FindType(n) : null;
@@ -616,7 +616,7 @@ class Weather : Actor
 			wthr.Reset(Weather.GetPrecipitationType(n));
 	}
 	
-	static Name GetPrecipitationTypeName()
+	static clearscope Name GetPrecipitationTypeName()
 	{
 		Name n;
 		let wthr = Weather.Get();

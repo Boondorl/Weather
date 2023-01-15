@@ -9,6 +9,8 @@ class WeatherStreamReader
     const STAR = 0x2A;
     const BACK_SLASH = 0x5C;
 
+    private WeatherKeywords reserved;
+
     private bool bError;
     private string errorMessage;
     private int errorLine;
@@ -22,11 +24,13 @@ class WeatherStreamReader
     private bool bEndOfStream;
     private int line;
     private string curLexeme;
+    private string strippedLexeme;
 
-    static WeatherStreamReader Create(string lumpName)
+    static WeatherStreamReader Create(string lumpName, WeatherKeywords reserved = null)
     {
         let wsr = new("WeatherStreamReader");
         wsr.lumpName = lumpName;
+        wsr.reserved = reserved;
 
         return wsr;
     }
@@ -39,7 +43,7 @@ class WeatherStreamReader
         nextIndex = 0;
         bEndOfStream = true;
         line = 0;
-        curLexeme = EMPTY_STRING;
+        curLexeme = strippedLexeme = EMPTY_STRING;
 
         bError = false;
         errorMessage = EMPTY_STRING;
@@ -60,26 +64,31 @@ class WeatherStreamReader
 
     bool NextLexeme()
     {
-        curLexeme = EMPTY_STRING;
+        curLexeme = strippedLexeme = EMPTY_STRING;
         SkipWhitespace();
 
         if (bEndOfStream)
             return false;
 
+        if (IsReserved(Peek()))
+        {
+            curLexeme.AppendCharacter(Read());
+            strippedLexeme = curLexeme;
+            return true;
+        }
+
         int startingLine = line;
 
         bool inString, wasString;
         inString = wasString = (Peek() == QUOTE);
-        bool appendQuote;
 
         if (inString)
-            Read();
+            curLexeme.AppendCharacter(Read());
 
-        // TODO: Error handling
         while (!bEndOfStream)
         {
             int pending = Peek();
-            if (pending == NEWLINE && inString)
+            if (inString && pending == NEWLINE)
             {
                 SkipWhitespace();
                 if (bEndOfStream)
@@ -88,8 +97,11 @@ class WeatherStreamReader
                 pending = Peek();
             }
 
-            if (!inString && ((pending == QUOTE && !appendQuote) || IsWhitespace(pending)))
+            if (!inString
+                && (pending == QUOTE || IsWhitespace(pending) || IsReserved(pending)))
+            {
                 break;
+            }
 
             int ch = Read();
             if (!inString && ch == FORW_SLASH)
@@ -113,21 +125,21 @@ class WeatherStreamReader
                     continue;
                 }
             }
-            else if (ch == BACK_SLASH && Peek() == QUOTE)
+            else if (ch == BACK_SLASH)
             {
-                appendQuote = true;
+                int next = Peek();
+                if (next == QUOTE || next == BACK_SLASH)
+                {
+                    curLexeme.AppendCharacter(Read());
+                    continue;
+                }
             }
             else if (ch == QUOTE)
             {
-                if (appendQuote)
-                {
-                    appendQuote = false;
-                }
-                else
-                {
-                    inString = false;
-                    break;
-                }
+                inString = false;
+                curLexeme.AppendCharacter(ch);
+
+                break;
             }
 
             curLexeme.AppendCharacter(ch);
@@ -139,6 +151,15 @@ class WeatherStreamReader
             return false;
         }
 
+        strippedLexeme = curLexeme;
+        if (wasString)
+        {
+            if (strippedLexeme.Length() == 2)
+                strippedLexeme = EMPTY_STRING;
+            else
+                strippedLexeme = strippedLexeme.Mid(1, strippedLexeme.Length()-2);
+        }
+
         // Ignore empty lexemes
         return wasString || curLexeme.Length() ? true : NextLexeme();
     }
@@ -146,6 +167,11 @@ class WeatherStreamReader
     string GetLexeme() const
     {
         return curLexeme;
+    }
+
+    string StripQuotes() const
+    {
+        return strippedLexeme;
     }
 
     string GetLumpName() const
@@ -172,7 +198,7 @@ class WeatherStreamReader
         return ch;
     }
 
-    private int Peek()
+    private int Peek() const
     {
         if (bEndOfStream)
             return 0;
@@ -231,7 +257,12 @@ class WeatherStreamReader
         return false;
     }
 
-    private bool IsWhitespace(int ch)
+    private bool IsReserved(int ch) const
+    {
+        return reserved && reserved.IsReservedChar(ch);
+    }
+
+    private bool IsWhitespace(int ch) const
     {
         return ch == 0x20 || ch == 0x09 || (ch >= 0x0A && ch <= 0x0D);
     }

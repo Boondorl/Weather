@@ -141,6 +141,47 @@ class PrecipitationType
 	}
 }
 
+class WeatherKeywords
+{
+	const DELIMITER = ",";
+
+	private Map<Name, bool> reserved;
+	private Map<int, bool> reservedChar;
+
+	static WeatherKeywords Create(string terms)
+	{
+		let wk = new("WeatherKeywords");
+		wk.AddKeywords(terms);
+
+		return wk;
+	}
+
+	void AddKeywords(string terms)
+	{
+		Array<string> keywords;
+		terms.Split(keywords, DELIMITER, TOK_SKIPEMPTY);
+
+		foreach (k : keywords)
+		{
+			if (k.CodePointCount() > 1)
+				continue;
+
+			reserved.Insert(k, true);
+			reservedChar.Insert(k.GetNextCodePoint(0), true);
+		}
+	}
+
+	bool IsReserved(Name word) const
+	{
+		return reserved.CheckKey(word);
+	}
+
+	bool IsReservedChar(int ch) const
+	{
+		return reservedChar.CheckKey(ch);
+	}
+}
+
 class WeatherError
 {
 	private string message;
@@ -174,24 +215,45 @@ class WeatherHandler : StaticEventHandler
 	const DEFAULT_STRING = "";
 
 	private WeatherError error;
-
-	private Map<Name, bool> reserved;
-	private Map<Name, string> defaults;
+	private WeatherKeywords reserved;
 	private Map<Name, string> toggleFields;
 	private Map<Name, string> standardFields;
-	
+
+	Map<Name, string> defaults;
 	Array<PrecipitationType> precipTypes;
+
+	// Error handling
+
+	protected clearscope bool HasError() const
+	{
+		return error != null;
+	}
+
+	protected clearscope void PrintError() const
+	{
+		Console.PrintF("%s", error.ToString());
+	}
+
+	protected void ThrowError(string msg, string lump, int line)
+	{
+		error = WeatherError.Create(msg, lump, line);
+	}
+
+	protected void ClearError()
+	{
+		error = null;
+	}
 
 	// Data fields
 
 	protected void CreateLookupTables()
 	{
-		// keywords
-		reserved.Insert(OPEN_BRACE, true);
-		reserved.Insert(CLOSE_BRACE, true);
-		reserved.Insert(ASSIGN, true);
+		// Keywords
+		string words = String.Format("%s%s%s%s%s", OPEN_BRACE, WeatherKeywords.DELIMITER,
+										CLOSE_BRACE, WeatherKeywords.DELIMITER, ASSIGN);
+		reserved = WeatherKeywords.Create(words);
 
-		// bools
+		// Bools
 		toggleFields.Insert('Stormy', STR_FALSE);
 		toggleFields.Insert('Foggy', STR_FALSE);
 		toggleFields.Insert('FogIndoors', STR_FALSE);
@@ -205,12 +267,12 @@ class WeatherHandler : StaticEventHandler
 		toggleFields.Insert('LightningOnlyIndoors', STR_FALSE);
 		toggleFields.Insert('WindOnlyIndoors', STR_FALSE);
 		
-		// ints
+		// Ints
 		standardFields.Insert('PrecipitationAmount', "0");
 		standardFields.Insert('LightningColor', "0xFFFFFFFF");
 		standardFields.Insert('FogColor', "0xFF696969");
 		
-		// floats
+		// Floats
 		standardFields.Insert('FogAlpha', "0");
 		standardFields.Insert('FogFadeInTime', "0.1");
 		standardFields.Insert('FogFadeOutTime', "0.1");
@@ -237,50 +299,28 @@ class WeatherHandler : StaticEventHandler
 		standardFields.Insert('PrecipitationRadius', "768");
 		standardFields.Insert('PrecipitationHeight', "384");
 		
-		// strings
+		// Strings
 		standardFields.Insert('PrecipitationType', DEFAULT_STRING);
 		standardFields.Insert('PrecipitationTag', DEFAULT_STRING);
 		standardFields.Insert('PrecipitationSound', DEFAULT_STRING);
 		standardFields.Insert('WindSound', DEFAULT_STRING);
 		standardFields.Insert('ThunderSound', DEFAULT_STRING);
-	}
 
-	protected void GenerateDefaults()
-	{
-		defaults.Clear();
-		AppendMap(defaults, toggleFields);
-		AppendMap(defaults, standardFields);
-	}
+		// Defaults
+		defaults.Copy(standardFields);
 
-	private void AppendMap(out Map<Name, string> props, Map<Name, string> append)
-	{
 		MapIterator<Name, string> it;
-		it.Init(append);
-
+		it.Init(toggleFields);
 		while (it.Next())
-			props.Insert(it.GetKey(), it.GetValue());
-	}
-	
-	// Error handling
-
-	protected clearscope bool HasError() const
-	{
-		return error != null;
+			defaults.Insert(it.GetKey(), it.GetValue());
 	}
 
-	protected clearscope void PrintError() const
+	protected void ClearLookupTables()
 	{
-		Console.PrintF("%s", error.ToString());
-	}
-
-	protected void ThrowError(string msg, string lump, int line)
-	{
-		error = WeatherError.Create(msg, lump, line);
-	}
-
-	protected void ClearError()
-	{
-		error = null;
+		ClearError();
+		reserved = null;
+		toggleFields.Clear();
+		standardFields.Clear();
 	}
 
 	// Parsing
@@ -288,9 +328,8 @@ class WeatherHandler : StaticEventHandler
 	override void OnRegister()
 	{
 		CreateLookupTables();
-		GenerateDefaults();
 		
-		let reader = WeatherStreamReader.Create("WTHRINFO");
+		let reader = WeatherStreamReader.Create("WTHRINFO", reserved);
 		while (reader.NextLump())
 		{
 			bool created = false;
@@ -323,24 +362,27 @@ class WeatherHandler : StaticEventHandler
 			if (!created)
 				Console.PrintF("%sWarning: File %s is empty", Font.TEXTCOLOR_YELLOW, reader.GetLumpName());
 		}
+
+		ClearLookupTables();
 	}
 
 	protected PrecipitationType ParseType(WeatherStreamReader reader)
 	{
 		string word = reader.GetLexeme();
+		if (reserved.IsReserved(word))
+		{
+			string msg = String.Format("Invalid use of keyword %s; expected type name", word);
+			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
+			return null;
+		}
+
+		word = reader.StripQuotes();
 		if (!word.Length())
 		{
 			ThrowError("Names of precipitation types cannot be empty", reader.GetLumpName(), reader.GetLine());
 			return null;
 		}
-
-		if (reserved.CheckKey(word))
-		{
-			string msg = String.Format("Invalid use of keyword %s", word);
-			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
-			return null;
-		}
-
+	
 		PrecipitationType pType = FindType(word);
 		if (!pType)
 			pType = PrecipitationType.Create(word);
@@ -354,7 +396,7 @@ class WeatherHandler : StaticEventHandler
 		word = reader.GetLexeme();
 		if (word != OPEN_BRACE)
 		{
-			string msg = String.Format("Expected %s after type %s; got %s", OPEN_BRACE, pType.GetName(), word);
+			string msg = String.Format("Expected %s after type name %s; got %s", OPEN_BRACE, pType.GetName(), word);
 			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
 			return null;
 		}
@@ -365,7 +407,7 @@ class WeatherHandler : StaticEventHandler
 		word = reader.GetLexeme();
 		if (word != CLOSE_BRACE)
 		{
-			string msg = String.Format("Expected %s at end of type %s; got end of file", CLOSE_BRACE, pType.GetName());
+			string msg = String.Format("Expected %s at end of type name %s; got end of file", CLOSE_BRACE, pType.GetName());
 			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
 			return null;
 		}
@@ -384,9 +426,9 @@ class WeatherHandler : StaticEventHandler
 			if (word == CLOSE_BRACE)
 				break;
 
-			if (reserved.CheckKey(word))
+			if (reserved.IsReserved(word))
 			{
-				string msg = String.Format("Invalid use of keyword %s", word);
+				string msg = String.Format("Invalid use of keyword %s; expected property", word);
 				ThrowError(msg, reader.GetLumpName(), reader.GetLine());
 				return false;
 			}
@@ -417,14 +459,14 @@ class WeatherHandler : StaticEventHandler
 				}
 
 				string val = reader.GetLexeme();
-				if (reserved.CheckKey(val))
+				if (reserved.IsReserved(val))
 				{
-					string msg = String.Format("Invalid use of keyword %s", val);
+					string msg = String.Format("Invalid use of keyword %s; expected property value", val);
 					ThrowError(msg, reader.GetLumpName(), reader.GetLine());
 					return false;
 				}
 
-				vals.Insert(word, val);
+				vals.Insert(word, reader.StripQuotes());
 			}
 			else
 			{
@@ -458,7 +500,7 @@ class WeatherHandler : StaticEventHandler
 	const NO_FOG = "weather_no_fog";
 	const NO_LIGHTNING = "weather_no_lightning";
 	
-	private Weather wthr;
+	protected Weather wthr;
 	
 	override void WorldTick()
 	{
