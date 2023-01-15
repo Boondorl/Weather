@@ -146,55 +146,70 @@ class Weather : Actor
 	{
 		return bInFlash || lightning > 0;
 	}
-	
-	void Reset(PrecipitationType t = null)
+
+	clearscope bool InFade(Name type, bool sky) const
 	{
-		bool wasFoggy, wasStormy;
-		if (current)
+		if (!current)
+			return false;
+
+		bool onlyIndoors = current.GetBool(String.Format("%sOnlyIndoors", type));
+		return (sky && onlyIndoors) || (!sky && !onlyIndoors && !current.GetBool(String.Format("%sIndoors", type)));
+	}
+
+	clearscope double CalculateVolume(double v, double mi, double ma, bool fadeOut, int fis, int fos) const
+	{
+		v = clamp(v, 0, 1);
+		
+		if (fadeOut)
 		{
-			if (current.GetBool('Foggy'))
+			if (v > mi)
 			{
-				wasFoggy = true;
-				prevFogColor = current.GetColor('Fog');
+				if (fos <= 0)
+				{
+					v = mi;
+				}
+				else
+				{
+					double diff = ma - mi;
+					if (diff <= 0)
+						diff = 1;
+
+					v = max(v - diff/fos, mi);
+				}
 			}
-			
-			if (current.GetBool('Stormy'))
+			else if (v < mi)
 			{
-				wasStormy = true;
-				prevLightningColor = current.GetColor('Lightning');
+				v = min(v + 1.0/gameTicRate, mi);
+			}
+		}
+		else 
+		{
+			if (v < ma)
+			{
+				if (fis <= 0)
+				{
+					v = ma;
+				}
+				else
+				{
+					double diff = ma - mi;
+					if (diff <= 0)
+						diff = 1;
+					
+					v = min(v + diff/fis, ma);
+				}
+			}
+			else if (v > ma)
+			{
+				v = max(v - 1.0/gameTicRate, ma);
 			}
 		}
 		
-		current = t;
-		if (current)
-		{
-			if (current.GetBool('Stormy'))
-			{
-				if (thunderTimer <= 0)
-					thunderTimer = Random[Weather](current.GetTime('MinThunder'), current.GetTime('MaxThunder'));
-				if (lightningTimer <= 0)
-					lightningTimer = Random[Weather](current.GetTime('MinLightning'), current.GetTime('MaxLightning'));
-				
-				lightningColorTimer = wasStormy ? int(ceil(gameTicRate * FADE_TRANSITION)) : -1;
-			}
-			else
-			{
-				thunderTimer = lightningTimer = 0;
-				lightningColorTimer = -1;
-			}
-			
-			if (!current.GetType('Precipitation'))
-				rateTimer = 0;
-			
-			fogColorTimer = (wasFoggy && current.GetBool('Foggy')) ? int(ceil(gameTicRate * FADE_TRANSITION)) : -1;
-		}
-		else
-		{
-			rateTimer = thunderTimer = lightningTimer = 0;
-			fogColorTimer = lightningColorTimer = -1;
-		}
+		return v;
 	}
-	
+
+	// Spawning logic
+
 	private clearscope Vector2 GetCeilingPortalOffset(Sector sec, double z) const
 	{
 		Vector2 ofs;
@@ -256,7 +271,7 @@ class Weather : Actor
 
 		return level.IsPointInLevel(spot);
 	}
-	
+
 	void SpawnPrecipitation(Actor origin, class<Precipitation> precip, Vector2 dir, double dist, double z, bool outdoors = true, bool indoors = false)
 	{
 		bool skyCheck;
@@ -322,14 +337,55 @@ class Weather : Actor
 		if (ValidSpawn(sec, spawnPos))
 			Spawn(precip, spawnPos, ALLOW_REPLACE);
 	}
-	
-	clearscope bool InFade(Name type, bool sky) const
-	{
-		if (!current)
-			return false;
 
-		bool onlyIndoors = current.GetBool(String.Format("%sOnlyIndoors", type));
-		return (sky && onlyIndoors) || (!sky && !onlyIndoors && !current.GetBool(String.Format("%sIndoors", type)));
+	// General handling
+	
+	void Reset(PrecipitationType t = null)
+	{
+		bool wasFoggy, wasStormy;
+		if (current)
+		{
+			if (current.GetBool('Foggy'))
+			{
+				wasFoggy = true;
+				prevFogColor = current.GetColor('Fog');
+			}
+			
+			if (current.GetBool('Stormy'))
+			{
+				wasStormy = true;
+				prevLightningColor = current.GetColor('Lightning');
+			}
+		}
+		
+		current = t;
+		if (current)
+		{
+			if (current.GetBool('Stormy'))
+			{
+				if (thunderTimer <= 0)
+					thunderTimer = Random[Weather](current.GetTime('MinThunder'), current.GetTime('MaxThunder'));
+				if (lightningTimer <= 0)
+					lightningTimer = Random[Weather](current.GetTime('MinLightning'), current.GetTime('MaxLightning'));
+				
+				lightningColorTimer = wasStormy ? int(ceil(gameTicRate * FADE_TRANSITION)) : -1;
+			}
+			else
+			{
+				thunderTimer = lightningTimer = 0;
+				lightningColorTimer = -1;
+			}
+			
+			if (!current.GetType('Precipitation'))
+				rateTimer = 0;
+			
+			fogColorTimer = (wasFoggy && current.GetBool('Foggy')) ? int(ceil(gameTicRate * FADE_TRANSITION)) : -1;
+		}
+		else
+		{
+			rateTimer = thunderTimer = lightningTimer = 0;
+			fogColorTimer = lightningColorTimer = -1;
+		}
 	}
 	
 	override void Tick()
@@ -509,58 +565,6 @@ class Weather : Actor
 		}
 	}
 	
-	clearscope double CalculateVolume(double v, double mi, double ma, bool fadeOut, int fis, int fos) const
-	{
-		v = clamp(v, 0, 1);
-		
-		if (fadeOut)
-		{
-			if (v > mi)
-			{
-				if (fos <= 0)
-				{
-					v = mi;
-				}
-				else
-				{
-					double diff = ma - mi;
-					if (diff <= 0)
-						diff = 1;
-
-					v = max(v - diff/fos, mi);
-				}
-			}
-			else if (v < mi)
-			{
-				v = min(v + 1.0/gameTicRate, mi);
-			}
-		}
-		else 
-		{
-			if (v < ma)
-			{
-				if (fis <= 0)
-				{
-					v = ma;
-				}
-				else
-				{
-					double diff = ma - mi;
-					if (diff <= 0)
-						diff = 1;
-					
-					v = min(v + diff/fis, ma);
-				}
-			}
-			else if (v > ma)
-			{
-				v = max(v - 1.0/gameTicRate, ma);
-			}
-		}
-		
-		return v;
-	}
-	
 	// General helpers and ACS ScriptCall functionality
 	
 	static clearscope Weather Get()
@@ -574,14 +578,7 @@ class Weather : Actor
 		let wh = WeatherHandler(StaticEventHandler.Find("WeatherHandler"));
 		return wh ? wh.FindType(n) : null;
 	}
-	
-	static void SetPrecipitationType(Name n)
-	{
-		let wthr = Weather.Get();
-		if (wthr)
-			wthr.Reset(Weather.GetPrecipitationType(n));
-	}
-	
+
 	static clearscope Name GetPrecipitationTypeName()
 	{
 		Name n;
@@ -590,6 +587,13 @@ class Weather : Actor
 			n = wthr.current.GetName();
 		
 		return n;
+	}
+	
+	static void SetPrecipitationType(Name n)
+	{
+		let wthr = Weather.Get();
+		if (wthr)
+			wthr.Reset(Weather.GetPrecipitationType(n));
 	}
 	
 	static string GetPrecipitationTypeTag()

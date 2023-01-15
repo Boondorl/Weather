@@ -156,6 +156,16 @@ class WeatherKeywords
 		return wk;
 	}
 
+	bool IsReserved(Name word) const
+	{
+		return reserved.CheckKey(word);
+	}
+
+	bool IsReservedChar(int ch) const
+	{
+		return reservedChar.CheckKey(ch);
+	}
+
 	void AddKeywords(string terms)
 	{
 		Array<string> keywords;
@@ -169,16 +179,6 @@ class WeatherKeywords
 			reserved.Insert(k, true);
 			reservedChar.Insert(k.GetNextCodePoint(0), true);
 		}
-	}
-
-	bool IsReserved(Name word) const
-	{
-		return reserved.CheckKey(word);
-	}
-
-	bool IsReservedChar(int ch) const
-	{
-		return reservedChar.CheckKey(ch);
 	}
 }
 
@@ -325,96 +325,6 @@ class WeatherHandler : StaticEventHandler
 
 	// Parsing
 
-	override void OnRegister()
-	{
-		CreateLookupTables();
-		
-		let reader = WeatherStreamReader.Create("WTHRINFO", reserved);
-		while (reader.NextLump())
-		{
-			bool created = false;
-			ClearError();
-
-			while (reader.NextLexeme())
-			{
-				created = true;
-
-				PrecipitationType pType = ParseType(reader);
-				if (reader.HasError() || HasError())
-				{
-					if (!reader.HasError())
-						PrintError();
-
-					break;
-				}
-
-				if (pType)
-					precipTypes.Push(pType);
-			}
-
-			if (reader.HasError())
-			{
-				let [msg, line] = reader.GetError();
-				ThrowError(msg, reader.GetLumpName(), line);
-				PrintError();
-			}
-
-			if (!created)
-				Console.PrintF("%sWarning: File %s is empty", Font.TEXTCOLOR_YELLOW, reader.GetLumpName());
-		}
-
-		ClearLookupTables();
-	}
-
-	protected PrecipitationType ParseType(WeatherStreamReader reader)
-	{
-		string word = reader.GetLexeme();
-		if (reserved.IsReserved(word))
-		{
-			string msg = String.Format("Invalid use of keyword %s; expected type name", word);
-			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
-			return null;
-		}
-
-		word = reader.StripQuotes();
-		if (!word.Length())
-		{
-			ThrowError("Names of precipitation types cannot be empty", reader.GetLumpName(), reader.GetLine());
-			return null;
-		}
-	
-		PrecipitationType pType = FindType(word);
-		if (!pType)
-			pType = PrecipitationType.Create(word);
-		
-		if (!reader.NextLexeme())
-		{
-			ThrowError("Unexpected end of file", reader.GetLumpName(), reader.GetLine());
-			return null;
-		}
-
-		word = reader.GetLexeme();
-		if (word != OPEN_BRACE)
-		{
-			string msg = String.Format("Expected %s after type name %s; got %s", OPEN_BRACE, pType.GetName(), word);
-			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
-			return null;
-		}
-
-		if (!ParseBody(reader, pType))
-			return null;
-
-		word = reader.GetLexeme();
-		if (word != CLOSE_BRACE)
-		{
-			string msg = String.Format("Expected %s at end of type name %s; got end of file", CLOSE_BRACE, pType.GetName());
-			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
-			return null;
-		}
-
-		return pType;
-	}
-
 	private bool ParseBody(WeatherStreamReader reader, PrecipitationType pType)
 	{
 		Map<Name, string> vals;
@@ -480,6 +390,103 @@ class WeatherHandler : StaticEventHandler
 
 		return true;
 	}
+
+	protected PrecipitationType ParseType(WeatherStreamReader reader)
+	{
+		string word = reader.GetLexeme();
+		if (reserved.IsReserved(word))
+		{
+			string msg = String.Format("Invalid use of keyword %s; expected type name", word);
+			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
+			return null;
+		}
+
+		word = reader.StripQuotes();
+		if (!word.Length())
+		{
+			ThrowError("Names of precipitation types cannot be empty", reader.GetLumpName(), reader.GetLine());
+			return null;
+		}
+	
+		PrecipitationType pType = FindType(word);
+		if (!pType)
+			pType = PrecipitationType.Create(word);
+		
+		if (!reader.NextLexeme())
+		{
+			ThrowError("Unexpected end of file", reader.GetLumpName(), reader.GetLine());
+			return null;
+		}
+
+		word = reader.GetLexeme();
+		if (word != OPEN_BRACE)
+		{
+			string msg = String.Format("Expected %s after type name %s; got %s", OPEN_BRACE, pType.GetName(), word);
+			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
+			return null;
+		}
+
+		if (!ParseBody(reader, pType))
+			return null;
+
+		word = reader.GetLexeme();
+		if (word != CLOSE_BRACE)
+		{
+			string msg = String.Format("Expected %s at end of type name %s; got end of file", CLOSE_BRACE, pType.GetName());
+			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
+			return null;
+		}
+
+		return pType;
+	}
+
+	override void OnRegister()
+	{
+		CreateLookupTables();
+		
+		let reader = WeatherStreamReader.Create("WTHRINFO", reserved);
+		while (reader.NextLump())
+		{
+			bool created = false;
+			ClearError();
+
+			while (reader.NextLexeme())
+			{
+				created = true;
+
+				PrecipitationType pType = ParseType(reader);
+				if (reader.HasError() || HasError())
+				{
+					if (!reader.HasError())
+						PrintError();
+
+					break;
+				}
+
+				if (pType)
+					precipTypes.Push(pType);
+			}
+
+			if (reader.HasError())
+			{
+				let [msg, line] = reader.GetError();
+				ThrowError(msg, reader.GetLumpName(), line);
+				PrintError();
+			}
+
+			if (!created && !reader.HasError())
+				Console.PrintF("%sWarning: File %s is empty", Font.TEXTCOLOR_YELLOW, reader.GetLumpName());
+		}
+
+		ClearLookupTables();
+	}
+
+	// General weather handling
+
+	const NO_FOG = "weather_no_fog";
+	const NO_LIGHTNING = "weather_no_lightning";
+	
+	protected Weather wthr;
 	
 	clearscope PrecipitationType FindType(Name n) const
 	{
@@ -494,13 +501,6 @@ class WeatherHandler : StaticEventHandler
 		
 		return null;
 	}
-	
-	// General weather handling
-
-	const NO_FOG = "weather_no_fog";
-	const NO_LIGHTNING = "weather_no_lightning";
-	
-	protected Weather wthr;
 	
 	override void WorldTick()
 	{

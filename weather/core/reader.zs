@@ -1,13 +1,16 @@
 class WeatherStreamReader
 {
+    enum EKeywords
+    {
+        NEWLINE = 0x0A,
+        QUOTE = 0x22,
+        STAR = 0x2A,
+        FORW_SLASH = 0x2F,
+        BACK_SLASH = 0x5C
+    }
+
     const NOT_FOUND = -1;
     const EMPTY_STRING = "";
-
-    const NEWLINE = 0x0A;
-    const QUOTE = 0x22;
-    const FORW_SLASH = 0x2F;
-    const STAR = 0x2A;
-    const BACK_SLASH = 0x5C;
 
     private WeatherKeywords reserved;
 
@@ -33,6 +36,113 @@ class WeatherStreamReader
         wsr.reserved = reserved;
 
         return wsr;
+    }
+
+    // Error handling
+
+    private void ThrowError(string msg, int l)
+    {
+        bError = true;
+        errorMessage = msg;
+        errorLine = l;
+    }
+
+    bool HasError() const
+    {
+        return bError;
+    }
+
+    string, int GetError() const
+    {
+        return errorMessage, errorLine;
+    }
+
+    // Parsing
+
+    private int Read()
+    {
+        if (bEndOfStream)
+            return 0;
+
+        curIndex = nextIndex;
+
+        int ch;
+        [ch, nextIndex] = stream.GetNextCodePoint(curIndex);
+        bEndOfStream = (Peek() == 0);
+
+        return ch;
+    }
+
+    private int Peek() const
+    {
+        if (bEndOfStream)
+            return 0;
+
+        return stream.GetNextCodePoint(nextIndex);
+    }
+
+    private void SkipWhitespace()
+    {
+        while (!bEndOfStream && IsWhitespace(Peek()))
+        {
+            if (Read() == NEWLINE)
+                ++line;
+        }
+    }
+
+    private void SkipLineComment()
+    {
+        while (!bEndOfStream && Peek() != NEWLINE)
+            Read();
+    }
+
+    private bool SkipBlockComment()
+    {
+        while (!bEndOfStream)
+        {
+            int ch = Read();
+            if (ch == NEWLINE)
+            {
+                ++line;
+            }
+            else if (ch == STAR && Peek() == FORW_SLASH)
+            {
+                Read();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsReserved(int ch) const
+    {
+        return reserved && reserved.IsReservedChar(ch);
+    }
+
+    private bool IsWhitespace(int ch) const
+    {
+        return ch == 0x20 || ch == 0x09 || (ch >= 0x0A && ch <= 0x0D);
+    }
+
+    string GetLexeme() const
+    {
+        return curLexeme;
+    }
+
+    string StripQuotes() const
+    {
+        return strippedLexeme;
+    }
+
+    string GetLumpName() const
+    {
+        return fullName;
+    }
+
+    int GetLine() const
+    {
+        return line;
     }
 
     bool NextLump()
@@ -162,108 +272,5 @@ class WeatherStreamReader
 
         // Ignore empty lexemes
         return wasString || curLexeme.Length() ? true : NextLexeme();
-    }
-
-    string GetLexeme() const
-    {
-        return curLexeme;
-    }
-
-    string StripQuotes() const
-    {
-        return strippedLexeme;
-    }
-
-    string GetLumpName() const
-    {
-        return fullName;
-    }
-
-    int GetLine() const
-    {
-        return line;
-    }
-
-    private int Read()
-    {
-        if (bEndOfStream)
-            return 0;
-
-        curIndex = nextIndex;
-
-        int ch;
-        [ch, nextIndex] = stream.GetNextCodePoint(curIndex);
-        bEndOfStream = (Peek() == 0);
-
-        return ch;
-    }
-
-    private int Peek() const
-    {
-        if (bEndOfStream)
-            return 0;
-
-        return stream.GetNextCodePoint(nextIndex);
-    }
-
-    bool HasError() const
-    {
-        return bError;
-    }
-
-    string, int GetError() const
-    {
-        return errorMessage, errorLine;
-    }
-
-    private void ThrowError(string msg, int l)
-    {
-        bError = true;
-        errorMessage = msg;
-        errorLine = l;
-    }
-
-    private void SkipWhitespace()
-    {
-        while (!bEndOfStream && IsWhitespace(Peek()))
-        {
-            if (Read() == NEWLINE)
-                ++line;
-        }
-    }
-
-    private void SkipLineComment()
-    {
-        while (!bEndOfStream && Peek() != NEWLINE)
-            Read();
-    }
-
-    private bool SkipBlockComment()
-    {
-        while (!bEndOfStream)
-        {
-            int ch = Read();
-            if (ch == NEWLINE)
-            {
-                ++line;
-            }
-            else if (ch == STAR && Peek() == FORW_SLASH)
-            {
-                Read();
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private bool IsReserved(int ch) const
-    {
-        return reserved && reserved.IsReservedChar(ch);
-    }
-
-    private bool IsWhitespace(int ch) const
-    {
-        return ch == 0x20 || ch == 0x09 || (ch >= 0x0A && ch <= 0x0D);
     }
 }
