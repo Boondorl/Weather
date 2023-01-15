@@ -214,8 +214,8 @@ class Weather : Actor
 	{
 		Vector2 ofs = (dest.v1.p + dest.delta*0.5) - (origin.v1.p + origin.delta*0.5);
 		
-		double angDiff = DeltaAngle(atan2(origin.delta.y,origin.delta.x), atan2(dest.delta.y,dest.delta.x));
-		dir = RotateVector(dir, -angDiff);
+		double angDiff = DeltaAngle(atan2(origin.delta.y,origin.delta.x), atan2(-dest.delta.y,-dest.delta.x));
+		dir = RotateVector(dir, angDiff);
 		
 		return ofs, dir;
 	}
