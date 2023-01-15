@@ -1,32 +1,37 @@
 OptionValue "WeatherPrecipitationAmount"
 {
-	0, "Off"
-	1, "Low"
-	2, "Medium"
-	3, "High"
-	4, "Very High"
+	0, "$OPTVAL_OFF"
+	1, "$OPTVAL_LOW"
+	2, "$OPTVAL_MEDIUM"
+	3, "$OPTVAL_HIGH"
+	4, "$OPTVAL_EXTREME"
 }
 
 AddOptionMenu "OptionsMenu"
 {
-	Submenu "Weather Options", "WeatherOptions"
+	Submenu "$WTHRMNU_TITLE", "WeatherOptions"
+}
+
+AddOptionMenu "OptionsMenuSimple"
+{
+	Submenu "$WTHRMNU_TITLE", "WeatherOptions"
 }
 
 OptionMenu "WeatherOptions"
 {
-	Title "Weather Options"
+	Title "$WTHRMNU_TITLE"
 	
-	StaticText "Weather Settings", Gold
+	StaticText "$WTHRMNU_SETTINGS", Gold
 	StaticText ""
 	
-	Option "Precipitation Amount", "weather_amount", "WeatherPrecipitationAmount"
+	Option "$WTHRMNU_AMOUNT", "weather_amount", "WeatherPrecipitationAmount"
 	StaticText ""
 	
-	Slider "Precipitation Volume", "weather_precip_vol", 0, 1, 0.05, 2
-	Slider "Wind Volume", "weather_wind_vol", 0, 1, 0.05, 2
-	Slider "Thunder Volume", "weather_thunder_vol", 0, 1, 0.05, 2
+	Slider "$WTHRMNU_PRECIPVOL", "weather_precip_vol", 0, 1, 0.05, 2
+	Slider "$WTHRMNU_WINDVOL", "weather_wind_vol", 0, 1, 0.05, 2
+	Slider "$WTHRMNU_THUNDERVOL", "weather_thunder_vol", 0, 1, 0.05, 2
 	StaticText ""
 	
-	Option "Disable Lightning", "weather_no_lightning", "OnOff"
-	Option "Disable Fog", "weather_no_fog", "OnOff"
+	Option "$WTHRMNU_LIGHTNING", "weather_no_lightning", "OnOff"
+	Option "$WTHRMNU_FOG", "weather_no_fog", "OnOff"
 }

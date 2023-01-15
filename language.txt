@@ -1,0 +1,14 @@
+[enu default]
+
+// Menu
+
+WTHRMNU_TITLE = "Weather Options";
+
+WTHRMNU_SETTINGS = "Weather Settings";
+
+WTHRMNU_AMOUNT = "Precipitation Amount";
+WTHRMNU_PRECIPVOL = "Precipitation Volume";
+WTHRMNU_WINDVOL = "Wind Volume";
+WTHRMNU_THUNDERVOL = "Thunder Volume";
+WTHRMNU_LIGHTNING = "Disable Lightning";
+WTHRMNU_FOG = "Disable Fog";
