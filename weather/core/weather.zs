@@ -1,18 +1,15 @@
 class PortalTracer : LineTracer
 {
+	Line portal;
+
 	override ETraceStatus TraceCallback()
     {
 		if (results.hitType == TRACE_HitWall)
 		{
 			if (results.hitLine.special == 156 && results.hitLine.args[2] <= 1)
 			{
-				Line l = results.hitLine;
-				Line d = l.GetPortalDestination();
-
-				results.srcFromTarget.xy += (d.v1.p + d.delta*0.5) - (l.v1.p + l.delta*0.5);
-				
-				double angDiff = Actor.DeltaAngle(atan2(l.delta.y, l.delta.x), atan2(d.delta.y, d.delta.x));
-				results.hitVector.xy = Actor.RotateVector(results.hitVector.xy, -angDiff);
+				portal = results.hitLine;
+				return TRACE_Stop;
 			}
 			else if (!(results.hitLine.flags & Line.ML_TWOSIDED))
 			{
@@ -27,6 +24,7 @@ class PortalTracer : LineTracer
 class Weather : Actor
 {
 	const FADE_TRANSITION = 0.125;
+	const MIN_DIST = 16.0;
 
 	// CVars
 	const AMOUNT = "weather_amount";
@@ -75,8 +73,6 @@ class Weather : Actor
 
 	override void BeginPlay()
 	{
-		super.BeginPlay();
-
 		ChangeStatNum(MAX_STATNUM);
 	}
 	
@@ -107,14 +103,17 @@ class Weather : Actor
 		{
 			fc = prevFogColor;
 		}
-		else if (current && fogColorTimer >= 0)
-		{
-			double r = min(1, (fogColorTimer + 1-t) / ceil(gameTicRate * FADE_TRANSITION));
-			fc = BlendColors(prevFogColor, current.GetColor('Fog'), 1-r);
-		}
 		else if (current)
 		{
-			fc = current.GetColor('Fog');
+			if (fogColorTimer >= 0)
+			{
+				double r = min(1, (fogColorTimer + 1-t) / ceil(gameTicRate * FADE_TRANSITION));
+				fc = BlendColors(prevFogColor, current.GetColor('Fog'), 1-r);
+			}
+			else
+			{
+				fc = current.GetColor('Fog');
+			}
 		}
 		
 		return clamp(prevFog, 0, 1)*(1-t) + clamp(fog, 0, 1)*t, fc;
@@ -127,14 +126,17 @@ class Weather : Actor
 		{
 			lc = prevLightningColor;
 		}
-		else if (current && lightningColorTimer >= 0)
-		{
-			double r = min(1, (lightningColorTimer + 1-t) / ceil(gameTicRate * FADE_TRANSITION));
-			lc = BlendColors(prevLightningColor, current.GetColor('Lightning'), 1-r);
-		}
 		else if (current)
 		{
-			lc = current.GetColor('Lightning');
+			if (lightningColorTimer >= 0)
+			{
+				double r = min(1, (lightningColorTimer + 1-t) / ceil(gameTicRate * FADE_TRANSITION));
+				lc = BlendColors(prevLightningColor, current.GetColor('Lightning'), 1-r);
+			}
+			else
+			{
+				lc = current.GetColor('Lightning');
+			}
 		}
 		
 		return clamp(prevLightning, 0, 1)*(1-t) + clamp(lightning, 0, 1)*t, lc;
@@ -200,10 +202,8 @@ class Weather : Actor
 		while (z > portZ && !sec.PortalBlocksMovement(Sector.ceiling))
 		{
 			ofs += sec.GetPortalDisplacement(Sector.ceiling);
+
 			sec = level.sectorPortals[sec.portals[Sector.ceiling]].mDestination;
-			if (!sec)
-				break;
-			
 			portZ = sec.GetPortalPlaneZ(Sector.ceiling);
 		}
 		
@@ -212,14 +212,10 @@ class Weather : Actor
 	
 	private clearscope Vector2, Vector2 VisPortalOffset(Line origin, Line dest, Vector2 dir) const
 	{
-		Vector2 ofs;
-		if (!origin || !dest)
-			return ofs, dir;
+		Vector2 ofs = (dest.v1.p + dest.delta*0.5) - (origin.v1.p + origin.delta*0.5);
 		
-		ofs = (dest.v1.p + dest.delta/2) - (origin.v1.p + origin.delta/2);
-		
-		double angDiff = DeltaAngle(VectorAngle(origin.delta.x,origin.delta.y), VectorAngle(-dest.delta.x,-dest.delta.y));
-		dir = RotateVector(dir, angDiff);
+		double angDiff = DeltaAngle(atan2(origin.delta.y,origin.delta.x), atan2(dest.delta.y,dest.delta.x));
+		dir = RotateVector(dir, -angDiff);
 		
 		return ofs, dir;
 	}
@@ -232,67 +228,37 @@ class Weather : Actor
 		
 		return sky, ceilZ;
 	}
-	
-	private clearscope bool InLiquid(Sector sec, Vector3 spot) const
+
+	private clearscope bool ValidSpawn(Sector sec, Vector3 spot) const
 	{
 		if (sec.moreFlags & Sector.SECMF_UNDERWATER)
-			return true;
-		else
+			return false;
+
+		Sector hSec = sec.GetHeightSec();
+		if (hSec && (hSec.moreFlags & Sector.SECMF_UNDERWATERMASK)
+			&& (spot.z < hSec.floorPlane.ZAtPoint(spot.xy)
+				|| (!(hSec.moreFlags & Sector.SECMF_FAKEFLOORONLY) && spot.z > hSec.ceilingPlane.ZAtPoint(spot.xy))))
 		{
-			Sector hSec = sec.GetHeightSec();
-			if (hSec)
-			{
-				if ((hSec.moreFlags & Sector.SECMF_UNDERWATERMASK)
-					&& (spot.z < hSec.floorPlane.ZAtPoint(spot.xy)
-						|| (!(hSec.moreFlags & Sector.SECMF_FAKEFLOORONLY) && spot.z > hSec.ceilingPlane.ZAtPoint(spot.xy))))
-				{
-					return true;
-				}
-			}
-			else
-			{
-				for (int i = 0; i < sec.Get3DFloorCount(); ++i)
-				{
-					let ffloor = sec.Get3DFloor(i);
-					if (!(ffloor.flags & F3DFloor.FF_EXISTS)
-						|| (ffloor.flags & F3DFloor.FF_SOLID)
-						|| !(ffloor.flags & F3DFloor.FF_SWIMMABLE))
-					{
-						continue;
-					}
-					
-					if (ffloor.top.ZAtPoint(spot.xy) > spot.z && ffloor.bottom.ZAtPoint(spot.xy) <= spot.z)
-						return true;
-				}
-			}
+			return false;
 		}
-		
-		return false;
-	}
-	
-	private clearscope bool In3DFloor(Sector sec, Vector3 spot) const
-	{
+
 		for (int i = 0; i < sec.Get3DFloorCount(); ++i)
 		{
 			let ffloor = sec.Get3DFloor(i);
-			if (!(ffloor.flags & F3DFloor.FF_EXISTS) || !(ffloor.flags & F3DFloor.FF_SOLID))
-				continue;
-			
-			if (ffloor.top.ZAtPoint(spot.xy) > spot.z && ffloor.bottom.ZAtPoint(spot.xy) <= spot.z)
-				return true;
+			if ((ffloor.flags & F3DFloor.FF_EXISTS)
+				&& (ffloor.flags & (F3DFloor.FF_SOLID|F3DFloor.FF_SWIMMABLE))
+				&& ffloor.top.ZAtPoint(spot.xy) > spot.z
+				&& ffloor.bottom.ZAtPoint(spot.xy) <= spot.z)
+			{
+				return false;
+			}
 		}
-		
-		return false;
+
+		return level.IsPointInLevel(spot);
 	}
 	
 	void SpawnPrecipitation(Actor origin, class<Precipitation> precip, Vector2 dir, double dist, double z, bool outdoors = true, bool indoors = false)
 	{
-		if (!origin || !precip)
-			return;
-		
-		if (dist < 0)
-			dist = 0;
-		
 		bool skyCheck;
 		double ceilZ;
 		Sector sec;
@@ -310,7 +276,7 @@ class Weather : Actor
 			{	
 				Vector3 spawnPos = (portalSpot+GetCeilingPortalOffset(sec, z), min(z, ceilZ));
 				sec = level.PointInSector(spawnPos.xy);
-				if (level.IsPointInLevel(spawnPos) && !InLiquid(sec, spawnPos) && !In3DFloor(sec, spawnPos))
+				if (ValidSpawn(sec, spawnPos))
 				{
 					Spawn(precip, spawnPos, ALLOW_REPLACE);
 					
@@ -321,16 +287,16 @@ class Weather : Actor
 				}
 			}
 		}
-		
+
+		// If we hit a visual only portal, get the offsets to the location it's looking at
 		if (!pt)
 			pt = new("PortalTracer");
 		
-		// If we hit a visual only portal, get the offsets to the location it's looking at
 		Vector2 visOfs;
-		/*pt.portal = null;
-		pt.Trace((origin.pos.xy,-32768), origin.CurSector, (dir,0), dist, 0);
+		pt.portal = null;
+		pt.Trace((origin.pos.xy,-32768), origin.curSector, (dir,0), dist, 0);
 		if (pt.portal)
-			[visOfs, xyOfs] = VisPortalOffset(pt.portal, pt.portal.GetPortalDestination(), xyOfs);*/
+			[visOfs, xyOfs] = VisPortalOffset(pt.portal, pt.portal.GetPortalDestination(), xyOfs);
 		
 		// Now that we've accounted for portals, spawn it regularly
 		spawnSpot = origin.pos.xy + xyOfs + visOfs;
@@ -353,10 +319,8 @@ class Weather : Actor
 		
 		Vector3 spawnPos = (spawnSpot+GetCeilingPortalOffset(sec, z), min(z, ceilZ));
 		sec = level.PointInSector(spawnPos.xy);
-		if (!level.IsPointInLevel(spawnPos) || InLiquid(sec, spawnPos) || In3DFloor(sec, spawnPos))
-			return;
-				
-		Spawn(precip, spawnPos, ALLOW_REPLACE);
+		if (ValidSpawn(sec, spawnPos))
+			Spawn(precip, spawnPos, ALLOW_REPLACE);
 	}
 	
 	clearscope bool InFade(Name type, bool sky) const
@@ -411,7 +375,7 @@ class Weather : Actor
 		{
 			fog = max(fog-0.01, 0);
 		}
-		
+
 		// Cache sounds
 		sound precip, wind, thunder;
 		if (current)
@@ -436,7 +400,7 @@ class Weather : Actor
 				A_StartSound(thunder, CHAN_7, CHANF_OVERLAP, 1, ATTN_NONE);
 			}
 			
-			if (!InFade('Lightning', sky) && !IsFrozen())
+			if (!IsFrozen() && !InFade('Lightning', sky))
 			{
 				--lightningTimer;
 				if (lightningTimer <= 0)
@@ -476,7 +440,7 @@ class Weather : Actor
 		// Audio
 		A_StartSound(precip, CHAN_5, CHANF_LOOPING, 1, ATTN_NONE);
 		A_StartSound(wind, CHAN_6, CHANF_LOOPING, 1, ATTN_NONE);
-		
+
 		if (current && precip)
 		{
 			pVolume = CalculateVolume(pVolume, current.GetVolume('MinPrecipitation'), current.GetVolume('MaxPrecipitation'), InFade('Precipitation', sky), current.GetTime('PrecipitationVolumeFadeIn'), current.GetTime('PrecipitationVolumeFadeOut'));
@@ -529,9 +493,11 @@ class Weather : Actor
 			
 			double z = master.pos.z + current.GetFloat('PrecipitationHeight');
 			double xy = current.GetFloat('PrecipitationRadius');
-			double minXY = master == players[consolePlayer].mo && (players[consolePlayer].cheats & CF_CHASECAM) ? 0 : 16;
+			double minXY = master == players[consolePlayer].mo && (players[consolePlayer].cheats & CF_CHASECAM) ? 0 : MIN_DIST;
+
 			bool only = current.GetBool('PrecipitationOnlyIndoors');
 			bool inside = only || current.GetBool('PrecipitationIndoors');
+
 			int amt = ceil(current.GetInt('PrecipitationAmount') * multi);
 			for (int i = 0; i < amt; ++i)
 			{
