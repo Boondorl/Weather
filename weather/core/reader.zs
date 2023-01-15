@@ -3,6 +3,7 @@ class WeatherStreamReader
     enum EKeywords
     {
         NEWLINE = 0x0A,
+        CARRET = 0x0D,
         QUOTE = 0x22,
         STAR = 0x2A,
         FORW_SLASH = 0x2F,
@@ -198,7 +199,7 @@ class WeatherStreamReader
         while (!bEndOfStream)
         {
             int pending = Peek();
-            if (inString && pending == NEWLINE)
+            if (inString && (pending == CARRET || pending == NEWLINE))
             {
                 SkipWhitespace();
                 if (bEndOfStream)
