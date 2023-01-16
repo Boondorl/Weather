@@ -2,11 +2,19 @@ class PortalTracer : LineTracer
 {
 	Line portal;
 
+	// Only check portals that won't offset correctly
+	private clearscope bool IsPortal(Line l) const
+	{
+		int type = l.GetPortalType();
+		return l.IsVisualPortal()
+				&& (type == LinePortal.PORTT_VISUAL || type == LinePortal.PORTT_TELEPORT);
+	}
+
 	override ETraceStatus TraceCallback()
     {
 		if (results.hitType == TRACE_HitWall)
 		{
-			if (results.hitLine.special == 156 && results.hitLine.args[2] <= 1)
+			if (IsPortal(results.hitLine))
 			{
 				portal = results.hitLine;
 				return TRACE_Stop;
@@ -23,7 +31,12 @@ class PortalTracer : LineTracer
 
 class Weather : Actor
 {
-	const FADE_TRANSITION = 0.125;
+	const INVALID_3D_FLOOR = F3DFloor.FF_SOLID | F3DFloor.FF_SWIMMABLE;
+
+	const FADE_TRANSITION_TIME = 0.125;
+	const DEFAULT_FADE = 0.35;
+	const DEFAULT_ALPHA = 0.1;
+	const FADE_OUT_TIME = 0.075;
 	const MIN_DIST = 16.0;
 
 	// CVars
@@ -107,7 +120,7 @@ class Weather : Actor
 		{
 			if (fogColorTimer >= 0)
 			{
-				double r = min(1, (fogColorTimer + 1-t) / ceil(gameTicRate * FADE_TRANSITION));
+				double r = min(1, (fogColorTimer + 1-t) / ceil(FADE_TRANSITION_TIME * gameTicRate));
 				fc = BlendColors(prevFogColor, current.GetColor('Fog'), 1-r);
 			}
 			else
@@ -130,7 +143,7 @@ class Weather : Actor
 		{
 			if (lightningColorTimer >= 0)
 			{
-				double r = min(1, (lightningColorTimer + 1-t) / ceil(gameTicRate * FADE_TRANSITION));
+				double r = min(1, (lightningColorTimer + 1-t) / ceil(FADE_TRANSITION_TIME * gameTicRate));
 				lc = BlendColors(prevLightningColor, current.GetColor('Lightning'), 1-r);
 			}
 			else
@@ -228,9 +241,7 @@ class Weather : Actor
 	private clearscope Vector2, Vector2 VisPortalOffset(Line origin, Line dest, Vector2 dir) const
 	{
 		Vector2 ofs = (dest.v1.p + dest.delta*0.5) - (origin.v1.p + origin.delta*0.5);
-		
-		double angDiff = DeltaAngle(atan2(origin.delta.y,origin.delta.x), atan2(-dest.delta.y,-dest.delta.x));
-		dir = RotateVector(dir, angDiff);
+		dir = RotateVector(dir, origin.GetPortalAngleDiff());
 		
 		return ofs, dir;
 	}
@@ -261,7 +272,7 @@ class Weather : Actor
 		{
 			let ffloor = sec.Get3DFloor(i);
 			if ((ffloor.flags & F3DFloor.FF_EXISTS)
-				&& (ffloor.flags & (F3DFloor.FF_SOLID|F3DFloor.FF_SWIMMABLE))
+				&& (ffloor.flags & INVALID_3D_FLOOR)
 				&& ffloor.top.ZAtPoint(spot.xy) > spot.z
 				&& ffloor.bottom.ZAtPoint(spot.xy) <= spot.z)
 			{
@@ -368,7 +379,7 @@ class Weather : Actor
 				if (lightningTimer <= 0)
 					lightningTimer = Random[Weather](current.GetTime('MinLightning'), current.GetTime('MaxLightning'));
 				
-				lightningColorTimer = wasStormy ? int(ceil(gameTicRate * FADE_TRANSITION)) : -1;
+				lightningColorTimer = wasStormy ? int(ceil(FADE_TRANSITION_TIME * gameTicRate)) : -1;
 			}
 			else
 			{
@@ -379,7 +390,7 @@ class Weather : Actor
 			if (!current.GetType('Precipitation'))
 				rateTimer = 0;
 			
-			fogColorTimer = (wasFoggy && current.GetBool('Foggy')) ? int(ceil(gameTicRate * FADE_TRANSITION)) : -1;
+			fogColorTimer = (wasFoggy && current.GetBool('Foggy')) ? int(ceil(FADE_TRANSITION_TIME * gameTicRate)) : -1;
 		}
 		else
 		{
@@ -408,7 +419,7 @@ class Weather : Actor
 			double a = current.GetAlpha('Fog');
 			if (fog > a)
 			{
-				fog = max(fog-0.01, a);
+				fog = max(fog - DEFAULT_FADE/gameTicRate, a);
 			}
 			else if (bFadingOut)
 			{
@@ -429,7 +440,7 @@ class Weather : Actor
 		}
 		else if (fog > 0)
 		{
-			fog = max(fog-0.01, 0);
+			fog = max(fog - DEFAULT_FADE/gameTicRate, 0);
 		}
 
 		// Cache sounds
@@ -485,8 +496,8 @@ class Weather : Actor
 		}
 		else if (lightning > 0)
 		{
-			int fade = stormy ? current.GetTime('LightningFadeOut') : 3;
-			double a = stormy ? current.GetAlpha('Lightning') : 0.1;
+			int fade = stormy ? current.GetTime('LightningFadeOut') : int(ceil(FADE_OUT_TIME * gameTicRate));
+			double a = stormy ? current.GetAlpha('Lightning') : DEFAULT_ALPHA;
 			if (fade <= 0)
 				lightning = 0;
 			else
