@@ -32,12 +32,12 @@ class PortalTracer : LineTracer
 class Weather : Actor
 {
 	const INVALID_3D_FLOOR = F3DFloor.FF_SOLID | F3DFloor.FF_SWIMMABLE;
+	const MIN_DIST = 16.0;
 
 	const FADE_TRANSITION_TIME = 0.125;
 	const DEFAULT_FADE = 0.35;
 	const DEFAULT_ALPHA = 0.1;
 	const FADE_OUT_TIME = 0.075;
-	const MIN_DIST = 16.0;
 
 	// CVars
 	const AMOUNT = "weather_amount";
@@ -496,8 +496,19 @@ class Weather : Actor
 		}
 		else if (lightning > 0)
 		{
-			int fade = stormy ? current.GetTime('LightningFadeOut') : int(ceil(FADE_OUT_TIME * gameTicRate));
-			double a = stormy ? current.GetAlpha('Lightning') : DEFAULT_ALPHA;
+			int fade;
+			double a;
+			if (stormy)
+			{
+				fade = current.GetTime('LightningFadeOut');
+				a = current.GetAlpha('Lightning');
+			}
+			else
+			{
+				fade = int(ceil(FADE_OUT_TIME * gameTicRate));
+				a = DEFAULT_ALPHA;
+			}
+
 			if (fade <= 0)
 				lightning = 0;
 			else

@@ -67,14 +67,14 @@ class Precipitation : Actor
 	Default
 	{
 		FloatBobPhase 0;
+		Height 0;
 		Radius 1;
-		Height 2;
 		
 		+NOBLOCKMAP
 		+SYNCHRONIZED
-		+WINDTHRUST
 		+DONTBLAST
 		+NOTONAUTOMAP
+		+WINDTHRUST
 	}
 	
 	override void Tick()
@@ -150,10 +150,6 @@ class Precipitation : Actor
 		
 		if (tics > 0)
 			--tics;
-		while (!tics)
-		{
-			if (!SetState(curState.nextState))
-				return;
-		}
+		while (!tics && SetState(curState.nextState)) {}
 	}
 }
