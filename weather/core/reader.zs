@@ -1,3 +1,28 @@
+class WeatherKeywords
+{
+	private Map<string, bool> reserved;
+	private Map<int, bool> reservedChar;
+
+	bool IsReserved(string word) const
+	{
+		return reserved.CheckKey(word);
+	}
+
+	bool IsReservedChar(int ch) const
+	{
+		return reservedChar.CheckKey(ch);
+	}
+
+	void AddKeyword(string word)
+	{
+        if (word.CodePointCount() == 1)
+        {
+            reserved.Insert(word, true);
+            reservedChar.Insert(word.GetNextCodePoint(0), true);
+        }
+	}
+}
+
 class WeatherStreamReader
 {
     enum EKeywords
@@ -69,7 +94,7 @@ class WeatherStreamReader
 
         int ch;
         [ch, nextIndex] = stream.GetNextCodePoint(curIndex);
-        bEndOfStream = (Peek() == 0);
+        bEndOfStream = CheckEndOfStream();
 
         return ch;
     }
@@ -82,13 +107,15 @@ class WeatherStreamReader
         return stream.GetNextCodePoint(nextIndex);
     }
 
-    private void SkipWhitespace()
+    private bool SkipWhitespace()
     {
         while (!bEndOfStream && IsWhitespace(Peek()))
         {
             if (Read() == NEWLINE)
                 ++line;
         }
+
+        return !bEndOfStream;
     }
 
     private void SkipLineComment()
@@ -114,6 +141,11 @@ class WeatherStreamReader
         }
 
         return false;
+    }
+
+    private bool CheckEndOfStream() const
+    {
+        return (Peek() == 0);
     }
 
     private bool IsReserved(int ch) const
@@ -167,7 +199,9 @@ class WeatherStreamReader
         fullName = Wads.GetLumpFullName(curLump);
         stream = Wads.ReadLump(curLump);
         line = 1;
-        bEndOfStream = stream.Length() <= 0;
+        bEndOfStream = false;
+
+        bEndOfStream = CheckEndOfStream();
 
         ++curLump;
         return true;
@@ -176,9 +210,7 @@ class WeatherStreamReader
     bool NextLexeme()
     {
         curLexeme = strippedLexeme = EMPTY_STRING;
-        SkipWhitespace();
-
-        if (bEndOfStream)
+        if (!SkipWhitespace())
             return false;
 
         if (IsReserved(Peek()))
@@ -201,8 +233,7 @@ class WeatherStreamReader
             int pending = Peek();
             if (inString && (pending == CARRET || pending == NEWLINE))
             {
-                SkipWhitespace();
-                if (bEndOfStream)
+                if (!SkipWhitespace())
                     break;
 
                 pending = Peek();

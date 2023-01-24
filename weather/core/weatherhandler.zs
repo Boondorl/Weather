@@ -35,85 +35,85 @@ class PrecipitationType
 		return n;
 	}
 	
-	string GetString(Name k)
+	string GetString(Name k) const
 	{
-		return fields.Get(k);
+		return fields.GetIfExists(k);
 	}
 	
-	bool GetBool(Name k)
+	bool GetBool(Name k) const
 	{
-		return !!fields.Get(k).ToInt();
+		return !!fields.GetIfExists(k).ToInt();
 	}
 	
-	int GetInt(Name k)
+	int GetInt(Name k) const
 	{
-		return fields.Get(k).ToInt();
+		return fields.GetIfExists(k).ToInt();
 	}
 	
-	double GetFloat(Name k)
+	double GetFloat(Name k) const
 	{
-		return fields.Get(k).ToDouble();
+		return fields.GetIfExists(k).ToDouble();
 	}
 	
-	string GetDefaultString(Name k)
+	string GetDefaultString(Name k) const
 	{
-		return defaultFields.Get(k);
+		return defaultFields.GetIfExists(k);
 	}
 	
-	bool GetDefaultBool(Name k)
+	bool GetDefaultBool(Name k) const
 	{
-		return !!defaultFields.Get(k).ToInt();
+		return !!defaultFields.GetIfExists(k).ToInt();
 	}
 	
-	int GetDefaultInt(Name k)
+	int GetDefaultInt(Name k) const
 	{
-		return defaultFields.Get(k).ToInt();
+		return defaultFields.GetIfExists(k).ToInt();
 	}
 	
-	double GetDefaultFloat(Name k)
+	double GetDefaultFloat(Name k) const
 	{
-		return defaultFields.Get(k).ToDouble();
+		return defaultFields.GetIfExists(k).ToDouble();
 	}
 	
 	// Wrappers
 	
-	string GetLocalizedString(Name k)
+	string GetLocalizedString(Name k) const
 	{
 		return StringTable.Localize(GetString(k));
 	}
 	
-	string GetDefaultLocalizedString(Name k)
+	string GetDefaultLocalizedString(Name k) const
 	{
 		return StringTable.Localize(GetDefaultString(k));
 	}
 	
-	int GetTime(Name k)
+	int GetTime(Name k) const
 	{
 		return int(ceil(GetFloat(String.Format("%sTime", k)) * gameTicRate));
 	}
 	
-	Color GetColor(Name k)
+	Color GetColor(Name k) const
 	{
 		Color col = GetInt(String.Format("%sColor", k));
 		return col;
 	}
 	
-	double GetAlpha(Name k)
+	double GetAlpha(Name k) const
 	{
 		return GetFloat(String.Format("%sAlpha", k));
 	}
 	
-	sound GetSound(Name k)
+	sound GetSound(Name k) const
 	{
 		return GetString(String.Format("%sSound", k));
 	}
 	
-	double GetVolume(Name k)
+	double GetVolume(Name k) const
 	{
 		return GetFloat(String.Format("%sVolume", k));
 	}
 	
-	class<Precipitation> GetType(Name k)
+	class<Precipitation> GetType(Name k) const
 	{
 		return (class<Precipitation>)(GetString(String.Format("%sType", k)));
 	}
@@ -138,47 +138,6 @@ class PrecipitationType
 	void SetFloat(Name k, double v)
 	{
 		fields.Insert(k, String.Format("%f", v));
-	}
-}
-
-class WeatherKeywords
-{
-	const DELIMITER = ",";
-
-	private Map<Name, bool> reserved;
-	private Map<int, bool> reservedChar;
-
-	static WeatherKeywords Create(string terms)
-	{
-		let wk = new("WeatherKeywords");
-		wk.AddKeywords(terms);
-
-		return wk;
-	}
-
-	bool IsReserved(Name word) const
-	{
-		return reserved.CheckKey(word);
-	}
-
-	bool IsReservedChar(int ch) const
-	{
-		return reservedChar.CheckKey(ch);
-	}
-
-	void AddKeywords(string terms)
-	{
-		Array<string> keywords;
-		terms.Split(keywords, DELIMITER, TOK_SKIPEMPTY);
-
-		foreach (k : keywords)
-		{
-			if (k.CodePointCount() > 1)
-				continue;
-
-			reserved.Insert(k, true);
-			reservedChar.Insert(k.GetNextCodePoint(0), true);
-		}
 	}
 }
 
@@ -246,12 +205,18 @@ class WeatherHandler : StaticEventHandler
 
 	// Data fields
 
+	protected clearscope WeatherKeywords GetReserved() const
+	{
+		return reserved;
+	}
+
 	protected void CreateLookupTables()
 	{
 		// Keywords
-		string words = String.Format("%s%s%s%s%s", OPEN_BRACE, WeatherKeywords.DELIMITER,
-										CLOSE_BRACE, WeatherKeywords.DELIMITER, ASSIGN);
-		reserved = WeatherKeywords.Create(words);
+		reserved = new("WeatherKeywords");
+		reserved.AddKeyword(OPEN_BRACE);
+		reserved.AddKeyword(CLOSE_BRACE);
+		reserved.AddKeyword(ASSIGN);
 
 		// Bools
 		toggleFields.Insert('Stormy', STR_FALSE);
@@ -444,7 +409,7 @@ class WeatherHandler : StaticEventHandler
 	{
 		CreateLookupTables();
 		
-		let reader = WeatherStreamReader.Create("WTHRINFO", reserved);
+		let reader = WeatherStreamReader.Create("WTHRINFO", GetReserved());
 		while (reader.NextLump())
 		{
 			bool created = false;
@@ -456,12 +421,7 @@ class WeatherHandler : StaticEventHandler
 
 				PrecipitationType pType = ParseType(reader);
 				if (reader.HasError() || HasError())
-				{
-					if (!reader.HasError())
-						PrintError();
-
 					break;
-				}
 
 				if (pType)
 					precipTypes.Push(pType);
@@ -471,10 +431,11 @@ class WeatherHandler : StaticEventHandler
 			{
 				let [msg, line] = reader.GetError();
 				ThrowError(msg, reader.GetLumpName(), line);
-				PrintError();
 			}
 
-			if (!created && !reader.HasError())
+			if (HasError())
+				PrintError();
+			else if (!created)
 				Console.PrintF("%sWarning: File %s is empty", Font.TEXTCOLOR_YELLOW, reader.GetLumpName());
 		}
 

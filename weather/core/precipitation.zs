@@ -30,13 +30,6 @@ class MoveTracer : LineTracer
 				}
 			case TRACE_HitFloor:
 			case TRACE_HitCeiling:
-				if (results.ffloor
-					&& (!(results.ffloor.flags & F3DFloor.FF_EXISTS)
-						|| !(results.ffloor.flags & F3DFloor.FF_SOLID)))
-				{
-					results.ffloor = null;
-					break;
-				}
 				return TRACE_Stop;
 				break;
 			
