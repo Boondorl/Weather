@@ -1,24 +1,14 @@
 class MoveTracer : LineTracer
 {
-	bool bHitWater;
-	
 	void Reset()
 	{
 		results.hitType = TRACE_HitNone;
 		results.ffloor = null;
-		bHitWater = false;
 		results.crossedWater = results.crossed3DWater = null;
 	}
 	
 	override ETraceStatus TraceCallback()
     {
-		if (results.crossedWater || results.crossed3DWater)
-		{
-			bHitWater = true;
-			results.hitPos = results.crossedWater ? results.crossedWaterPos : results.crossed3DWaterPos;
-			return TRACE_Stop;
-		}
-		
 		switch (results.hitType)
 		{
 			case TRACE_HitWall:
@@ -107,9 +97,16 @@ class Precipitation : Actor
 		
 		if (!(vel ~== (0,0,0)))
 		{
+			bool hitWater;
 			move.Reset();
-			bool res = move.Trace(pos, curSector, vel, 1, TRACE_HitSky) || move.bHitWater;
-			if (move.results.hitType == TRACE_HasHitSky)
+			bool res = move.Trace(pos, curSector, vel, 1, TRACE_HitSky);
+			if (move.results.crossedWater || move.results.crossed3DWater)
+			{
+				hitWater = true;
+				res = true;
+				move.results.hitPos = move.results.crossedWater ? move.results.crossedWaterPos : move.results.crossed3DWaterPos;
+			}
+			else if (move.results.hitType == TRACE_HasHitSky)
 			{
 				Destroy();
 				return;
@@ -122,7 +119,7 @@ class Precipitation : Actor
 
 			if (res)
 			{
-				if (move.bHitWater)
+				if (hitWater)
 					bNoGravity = true;
 
 				vel = (0,0,0);
