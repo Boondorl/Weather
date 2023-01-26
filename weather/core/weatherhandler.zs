@@ -405,7 +405,7 @@ class WeatherHandler : StaticEventHandler
 		return pType;
 	}
 
-	override void OnRegister()
+	override void OnEngineInitialize()
 	{
 		CreateLookupTables();
 		
