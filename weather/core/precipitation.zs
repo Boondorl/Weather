@@ -1,12 +1,5 @@
 class MoveTracer : LineTracer
 {
-	void Reset()
-	{
-		results.hitType = TRACE_HitNone;
-		results.ffloor = null;
-		results.crossedWater = results.crossed3DWater = null;
-	}
-	
 	override ETraceStatus TraceCallback()
     {
 		switch (results.hitType)
@@ -51,7 +44,8 @@ class Precipitation : Actor
 	{
 		FloatBobPhase 0;
 		Height 0;
-		Radius 1;
+		Radius 0;
+		RenderRadius 1;
 		
 		+NOBLOCKMAP
 		+SYNCHRONIZED
@@ -97,13 +91,11 @@ class Precipitation : Actor
 		
 		if (!(vel ~== (0,0,0)))
 		{
-			bool hitWater;
-			move.Reset();
 			bool res = move.Trace(pos, curSector, vel, 1, TRACE_HitSky);
 			if (move.results.crossedWater || move.results.crossed3DWater)
 			{
-				hitWater = true;
 				res = true;
+				bNoGravity = true;
 				move.results.hitPos = move.results.crossedWater ? move.results.crossedWaterPos : move.results.crossed3DWaterPos;
 			}
 			else if (move.results.hitType == TRACE_HasHitSky)
@@ -119,9 +111,6 @@ class Precipitation : Actor
 
 			if (res)
 			{
-				if (hitWater)
-					bNoGravity = true;
-
 				vel = (0,0,0);
 				if (!bDetonated)
 				{
@@ -135,11 +124,9 @@ class Precipitation : Actor
 		if (!bNoGravity && pos.z > floorZ)
 			vel.z -= GetGravity();
 		
-		if (!CheckNoDelay())
+		if (!CheckNoDelay() || tics < 0 || --tics > 0)
 			return;
 		
-		if (tics > 0)
-			--tics;
-		while (!tics && SetState(curState.nextState)) {}
+		while (SetState(curState.nextState) && !tics) {}
 	}
 }
