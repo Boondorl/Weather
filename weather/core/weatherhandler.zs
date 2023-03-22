@@ -190,7 +190,7 @@ class WeatherHandler : StaticEventHandler
 
 	protected clearscope void PrintError() const
 	{
-		Console.PrintF("%s", error.ToString());
+		Console.PrintF(error.ToString());
 	}
 
 	protected void ThrowError(string msg, string lump, int line)
@@ -454,10 +454,10 @@ class WeatherHandler : StaticEventHandler
 		if (n == 'None')
 			return null;
 		
-		for (int i = 0; i < precipTypes.Size(); ++i)
+		foreach (precip : precipTypes)
 		{
-			if (precipTypes[i].GetName() == n)
-				return precipTypes[i];
+			if (precip.GetName() == n)
+				return precip;
 		}
 		
 		return null;
@@ -474,8 +474,7 @@ class WeatherHandler : StaticEventHandler
 		if (!wthr || automapActive)
 			return;
 		
-		int x, y, w, h;
-		[x, y, w, h] = Screen.GetViewWindow();
+		let [x, y, w, h] = Screen.GetViewWindow();
 		
 		if (!CVar.GetCVar(NO_FOG, players[consolePlayer]).GetBool())
 		{

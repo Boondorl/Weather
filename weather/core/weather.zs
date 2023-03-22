@@ -91,20 +91,17 @@ class Weather : Actor
 	
 	clearscope Color BlendColors(Color c1, Color c2, double t) const
 	{
-		int c1r, c1g, c1b;
-		c1r = (c1 & 0xFF0000) >> 16;
-		c1g = (c1 & 0xFF00) >> 8;
-		c1b = c1 & 0xFF;
+		int c1r = (c1 & 0xFF0000) >> 16;
+		int c1g = (c1 & 0xFF00) >> 8;
+		int c1b = c1 & 0xFF;
 		
-		int c2r, c2g, c2b;
-		c2r = (c2 & 0xFF0000) >> 16;
-		c2g = (c2 & 0xFF00) >> 8;
-		c2b = c2 & 0xFF;
+		int c2r = (c2 & 0xFF0000) >> 16;
+		int c2g = (c2 & 0xFF00) >> 8;
+		int c2b = c2 & 0xFF;
 		
-		int rr, rg, rb;
-		rr = int(c1r*(1-t) + c2r*t) << 16;
-		rg = int(c1g*(1-t) + c2g*t) << 8;
-		rb = int(c1b*(1-t) + c2b*t);
+		int rr = int(c1r*(1-t) + c2r*t) << 16;
+		int rg = int(c1g*(1-t) + c2g*t) << 8;
+		int rb = int(c1b*(1-t) + c2b*t);
 		
 		return Color(0xFF000000 | rr | rg | rb);
 	}
@@ -320,7 +317,7 @@ class Weather : Actor
 		
 		Vector2 visOfs;
 		pt.portal = null;
-		pt.Trace((origin.pos.xy,-32768), origin.curSector, (dir,0), dist, 0);
+		pt.Trace((origin.pos.xy,-32768), origin.curSector, (dir,0), dist, 0, ignoreAllActors: true);
 		if (pt.portal)
 			[visOfs, xyOfs] = VisPortalOffset(pt.portal, pt.portal.GetPortalDestination(), xyOfs);
 		
@@ -406,6 +403,7 @@ class Weather : Actor
 			return;
 		
 		bool sky = master.ceilingPic == skyFlatNum;
+		bool frozen = (freezeTics > 0 && --freezeTics >= 0) || IsFrozen();
 		
 		// Fog
 		prevFog = fog;
@@ -432,10 +430,7 @@ class Weather : Actor
 			else if (fog < a)
 			{
 				int fade = current.GetTime('FogFadeIn');
-				if (fade <= 0)
-					fog = a;
-				else
-					fog = min(fog + a/fade, a);
+				fog = fade <= 0 ? a : min(fog + a/fade, a);
 			}
 		}
 		else if (fog > 0)
@@ -467,7 +462,7 @@ class Weather : Actor
 				A_StartSound(thunder, CHAN_7, CHANF_OVERLAP, 1, ATTN_NONE);
 			}
 			
-			if (!IsFrozen() && !InFade('Lightning', sky))
+			if (!frozen && !InFade('Lightning', sky))
 			{
 				--lightningTimer;
 				if (lightningTimer <= 0)
@@ -509,10 +504,7 @@ class Weather : Actor
 				a = DEFAULT_ALPHA;
 			}
 
-			if (fade <= 0)
-				lightning = 0;
-			else
-				lightning = max(lightning - a/fade, 0);
+			lightning = fade <= 0 ? 0 : max(lightning - a/fade, 0);
 		}
 		
 		// Audio
@@ -556,12 +548,12 @@ class Weather : Actor
 		A_SoundVolume(CHAN_6, wVolume * clamp(CVar.GetCVar(WIND_VOL, players[consolePlayer]).GetFloat(), 0, 1));
 		A_SoundVolume(CHAN_7, tVolume * clamp(CVar.GetCVar(THUNDER_VOL, players[consolePlayer]).GetFloat(), 0, 1));
 		
-		if (!current)
+		if (!current || frozen)
 			return;
 		
 		// Precipitation
 		double multi = min(4, CVar.GetCVar(AMOUNT, players[consolePlayer]).GetFloat());
-		if (multi <= 0 || IsFrozen())
+		if (multi <= 0)
 			return;
 		
 		let type = current.GetType('Precipitation');
@@ -591,14 +583,12 @@ class Weather : Actor
 	
 	static clearscope Weather Get()
 	{
-		let it = ThinkerIterator.Create("Weather", MAX_STATNUM);
-		return Weather(it.Next());
+		return Weather(ThinkerIterator.Create("Weather", MAX_STATNUM).Next());
 	}
 	
 	static clearscope PrecipitationType GetPrecipitationType(Name n)
 	{
-		let wh = WeatherHandler(StaticEventHandler.Find("WeatherHandler"));
-		return wh ? wh.FindType(n) : null;
+		return WeatherHandler(StaticEventHandler.Find("WeatherHandler")).FindType(n);
 	}
 
 	static clearscope Name GetPrecipitationTypeName()

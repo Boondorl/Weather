@@ -17,13 +17,8 @@ class MoveTracer : LineTracer
 				break;
 			
 			case TRACE_HitActor:
-				if (results.hitActor.bSolid
-					&& (results.hitActor != players[consolePlayer].camera
-						|| (players[consolePlayer].camera == players[consolePlayer].mo
-							&& (players[consolePlayer].cheats & CF_CHASECAM))))
-				{
+				if (results.hitActor.bSolid && !results.hitActor.bNonshootable)
 					return TRACE_Stop;
-				}
 				break;
 		}
 		
@@ -56,7 +51,7 @@ class Precipitation : Actor
 	
 	override void Tick()
 	{
-		if (IsFrozen())
+		if ((freezeTics > 0 && --freezeTics >= 0) || IsFrozen())
 			return;
 
 		if (!move)
@@ -64,34 +59,37 @@ class Precipitation : Actor
 		
 		if (bWindThrust)
 		{
-			int special = curSector.special;
-			switch (special)
+			switch (curSector.special)
 			{
 				// Wind_East
 				case 40: case 41: case 42: 
-					Thrust(windTab[special-40], 0);
+					Thrust(windTab[curSector.special-40], 0);
 					break;
 					
 				// Wind_North
 				case 43: case 44: case 45: 
-					Thrust(windTab[special-43], 90);
+					Thrust(windTab[curSector.special-43], 90);
 					break;
 					
 				// Wind_South
 				case 46: case 47: case 48: 
-					Thrust(windTab[special-46], 270);
+					Thrust(windTab[curSector.special-46], 270);
 					break;
 					
 				// Wind_West
 				case 49: case 50: case 51: 
-					Thrust(windTab[special-49], 180);
+					Thrust(windTab[curSector.special-49], 180);
 					break;
 			}
 		}
 		
 		if (!(vel ~== (0,0,0)))
 		{
-			bool res = move.Trace(pos, curSector, vel, 1, TRACE_HitSky);
+			Actor ignore;
+			if (players[consolePlayer].camera != players[consolePlayer].mo || !(players[consolePlayer].cheats & CF_CHASECAM))
+				ignore = players[consolePlayer].camera;
+
+			bool res = move.Trace(pos, curSector, vel, 1, TRACE_HitSky, ignore: ignore);
 			if (move.results.crossedWater || move.results.crossed3DWater)
 			{
 				res = true;
@@ -124,9 +122,7 @@ class Precipitation : Actor
 		if (!bNoGravity && pos.z > floorZ)
 			vel.z -= GetGravity();
 		
-		if (!CheckNoDelay() || tics < 0 || --tics > 0)
-			return;
-		
-		while (SetState(curState.nextState) && !tics) {}
+		if (CheckNoDelay() && tics >= 0 && --tics <= 0)
+			SetState(curState.nextState);
 	}
 }
