@@ -11,130 +11,130 @@ class PrecipitationType
 
 		return pt;
 	}
-	
+
 	void Initialize(Map<Name, string> f)
 	{
 		defaultFields.Move(f);
 		Reset();
 	}
-	
+
 	void SetDefaults()
 	{
 		defaultFields.Copy(fields);
 	}
-	
+
 	void Reset()
 	{
 		fields.Copy(defaultFields);
 	}
-	
+
 	// Getters
-	
+
 	Name GetName() const
 	{
 		return n;
 	}
-	
+
 	string GetString(Name k) const
 	{
 		return fields.GetIfExists(k);
 	}
-	
+
 	bool GetBool(Name k) const
 	{
 		return !!fields.GetIfExists(k).ToInt();
 	}
-	
+
 	int GetInt(Name k) const
 	{
 		return fields.GetIfExists(k).ToInt();
 	}
-	
+
 	double GetFloat(Name k) const
 	{
 		return fields.GetIfExists(k).ToDouble();
 	}
-	
+
 	string GetDefaultString(Name k) const
 	{
 		return defaultFields.GetIfExists(k);
 	}
-	
+
 	bool GetDefaultBool(Name k) const
 	{
 		return !!defaultFields.GetIfExists(k).ToInt();
 	}
-	
+
 	int GetDefaultInt(Name k) const
 	{
 		return defaultFields.GetIfExists(k).ToInt();
 	}
-	
+
 	double GetDefaultFloat(Name k) const
 	{
 		return defaultFields.GetIfExists(k).ToDouble();
 	}
-	
+
 	// Wrappers
-	
+
 	string GetLocalizedString(Name k) const
 	{
 		return StringTable.Localize(GetString(k));
 	}
-	
+
 	string GetDefaultLocalizedString(Name k) const
 	{
 		return StringTable.Localize(GetDefaultString(k));
 	}
-	
+
 	int GetTime(Name k) const
 	{
-		return int(ceil(GetFloat(String.Format("%sTime", k)) * gameTicRate));
+		return int(ceil(GetFloat(k.."Time") * gameTicRate));
 	}
-	
+
 	Color GetColor(Name k) const
 	{
-		Color col = GetInt(String.Format("%sColor", k));
+		Color col = GetInt(k.."Color");
 		return col;
 	}
-	
+
 	double GetAlpha(Name k) const
 	{
-		return GetFloat(String.Format("%sAlpha", k));
+		return GetFloat(k.."Alpha");
 	}
-	
-	sound GetSound(Name k) const
+
+	Sound GetSound(Name k) const
 	{
-		return GetString(String.Format("%sSound", k));
+		return GetString(k.."Sound");
 	}
-	
+
 	double GetVolume(Name k) const
 	{
-		return GetFloat(String.Format("%sVolume", k));
+		return GetFloat(k.."Volume");
 	}
-	
+
 	class<Precipitation> GetType(Name k) const
 	{
-		return (class<Precipitation>)(GetString(String.Format("%sType", k)));
+		return (class<Precipitation>)(GetString(k.."Type"));
 	}
-	
+
 	// Setters
-	
+
 	void SetString(Name k, string v)
 	{
 		fields.Insert(k, v);
 	}
-	
+
 	void SetBool(Name k, bool v)
 	{
 		fields.Insert(k, String.Format("%d", v));
 	}
-	
+
 	void SetInt(Name k, int v)
 	{
 		fields.Insert(k, String.Format("%d", v));
 	}
-	
+
 	void SetFloat(Name k, double v)
 	{
 		fields.Insert(k, String.Format("%f", v));
@@ -190,7 +190,7 @@ class WeatherHandler : StaticEventHandler
 
 	protected clearscope void PrintError() const
 	{
-		Console.PrintF(error.ToString());
+		Console.PrintF("%s", error.ToString());
 	}
 
 	protected void ThrowError(string msg, string lump, int line)
@@ -231,39 +231,39 @@ class WeatherHandler : StaticEventHandler
 		toggleFields.Insert('ThunderOnlyIndoors', STR_FALSE);
 		toggleFields.Insert('LightningOnlyIndoors', STR_FALSE);
 		toggleFields.Insert('WindOnlyIndoors', STR_FALSE);
-		
+
 		// Ints
 		standardFields.Insert('PrecipitationAmount', "0");
 		standardFields.Insert('LightningColor', "0xFFFFFFFF");
 		standardFields.Insert('FogColor', "0xFF696969");
-		
+
 		// Floats
-		standardFields.Insert('FogAlpha', "0");
+		standardFields.Insert('FogAlpha', "0.0");
 		standardFields.Insert('FogFadeInTime', "0.1");
 		standardFields.Insert('FogFadeOutTime', "0.1");
 		standardFields.Insert('MinPrecipitationVolume', "0.3");
-		standardFields.Insert('MaxPrecipitationVolume', "1");
+		standardFields.Insert('MaxPrecipitationVolume', "1.0");
 		standardFields.Insert('PrecipitationVolumeFadeInTime', "0.2");
-		standardFields.Insert('PrecipitationVolumeFadeOutTime', "1");
+		standardFields.Insert('PrecipitationVolumeFadeOutTime', "1.0");
 		standardFields.Insert('MinWindVolume', "0.3");
-		standardFields.Insert('MaxWindVolume', "1");
+		standardFields.Insert('MaxWindVolume', "1.0");
 		standardFields.Insert('WindVolumeFadeInTime', "0.2");
-		standardFields.Insert('WindVolumeFadeOutTime', "1");
+		standardFields.Insert('WindVolumeFadeOutTime', "1.0");
 		standardFields.Insert('MinThunderVolume', "0.3");
-		standardFields.Insert('MaxThunderVolume', "1");
+		standardFields.Insert('MaxThunderVolume', "1.0");
 		standardFields.Insert('ThunderVolumeFadeInTime', "0.2");
-		standardFields.Insert('ThunderVolumeFadeOutTime', "1");
-		standardFields.Insert('MinThunderTime', "15");
-		standardFields.Insert('MaxThunderTime', "30");
-		standardFields.Insert('LightningAlpha', "0");
-		standardFields.Insert('MinLightningTime', "15");
-		standardFields.Insert('MaxLightningTime', "30");
+		standardFields.Insert('ThunderVolumeFadeOutTime', "1.0");
+		standardFields.Insert('MinThunderTime', "15.0");
+		standardFields.Insert('MaxThunderTime', "30.0");
+		standardFields.Insert('LightningAlpha', "0.0");
+		standardFields.Insert('MinLightningTime', "15.0");
+		standardFields.Insert('MaxLightningTime', "30.0");
 		standardFields.Insert('LightningFadeInTime', "0.02");
 		standardFields.Insert('LightningFadeOutTime', "0.1");
-		standardFields.Insert('PrecipitationRateTime', "0");
-		standardFields.Insert('PrecipitationRadius', "768");
-		standardFields.Insert('PrecipitationHeight', "384");
-		
+		standardFields.Insert('PrecipitationRateTime', "0.0");
+		standardFields.Insert('PrecipitationRadius', "768.0");
+		standardFields.Insert('PrecipitationHeight', "384.0");
+
 		// Strings
 		standardFields.Insert('PrecipitationType', DEFAULT_STRING);
 		standardFields.Insert('PrecipitationTag', DEFAULT_STRING);
@@ -277,7 +277,9 @@ class WeatherHandler : StaticEventHandler
 		MapIterator<Name, string> it;
 		it.Init(toggleFields);
 		while (it.Next())
+		{
 			defaults.Insert(it.GetKey(), it.GetValue());
+		}
 	}
 
 	protected void ClearLookupTables()
@@ -299,7 +301,9 @@ class WeatherHandler : StaticEventHandler
 		{
 			string word = reader.GetLexeme();
 			if (word == CLOSE_BRACE)
+			{
 				break;
+			}
 
 			if (reserved.IsReserved(word))
 			{
@@ -372,11 +376,13 @@ class WeatherHandler : StaticEventHandler
 			ThrowError("Names of precipitation types cannot be empty", reader.GetLumpName(), reader.GetLine());
 			return null;
 		}
-	
+
 		PrecipitationType pType = FindType(word);
 		if (!pType)
+		{
 			pType = PrecipitationType.Create(word);
-		
+		}
+
 		if (!reader.NextLexeme())
 		{
 			ThrowError("Unexpected end of file", reader.GetLumpName(), reader.GetLine());
@@ -392,7 +398,9 @@ class WeatherHandler : StaticEventHandler
 		}
 
 		if (!ParseBody(reader, pType))
+		{
 			return null;
+		}
 
 		word = reader.GetLexeme();
 		if (word != CLOSE_BRACE)
@@ -408,7 +416,7 @@ class WeatherHandler : StaticEventHandler
 	override void OnEngineInitialize()
 	{
 		CreateLookupTables();
-		
+
 		let reader = WeatherStreamReader.Create("WTHRINFO", GetReserved());
 		while (reader.NextLump())
 		{
@@ -421,10 +429,14 @@ class WeatherHandler : StaticEventHandler
 
 				PrecipitationType pType = ParseType(reader);
 				if (reader.HasError() || HasError())
+				{
 					break;
+				}
 
 				if (pType)
+				{
 					precipTypes.Push(pType);
+				}
 			}
 
 			if (reader.HasError())
@@ -434,9 +446,13 @@ class WeatherHandler : StaticEventHandler
 			}
 
 			if (HasError())
+			{
 				PrintError();
+			}
 			else if (!created)
+			{
 				Console.PrintF("%sWarning: File %s is empty", Font.TEXTCOLOR_YELLOW, reader.GetLumpName());
+			}
 		}
 
 		ClearLookupTables();
@@ -446,42 +462,50 @@ class WeatherHandler : StaticEventHandler
 
 	const NO_FOG = "weather_no_fog";
 	const NO_LIGHTNING = "weather_no_lightning";
-	
+
 	protected Weather wthr;
-	
+
 	clearscope PrecipitationType FindType(Name n) const
 	{
 		if (n == 'None')
+		{
 			return null;
-		
+		}
+
 		foreach (precip : precipTypes)
 		{
 			if (precip.GetName() == n)
+			{
 				return precip;
+			}
 		}
-		
+
 		return null;
 	}
-	
+
 	override void WorldTick()
 	{
 		if (!wthr)
+		{
 			wthr = Weather.Get();
+		}
 	}
-	
+
 	override void RenderUnderlay(RenderEvent e)
 	{
 		if (!wthr || automapActive)
+		{
 			return;
-		
+		}
+
 		let [x, y, w, h] = Screen.GetViewWindow();
-		
+
 		if (!CVar.GetCVar(NO_FOG, players[consolePlayer]).GetBool())
 		{
 			let [fog, col] = wthr.GetFog(e.fracTic);
 			Screen.Dim(col, fog, x, y, w, h);
 		}
-		
+
 		if (!CVar.GetCVar(NO_LIGHTNING, players[consolePlayer]).GetBool() && wthr.InLightningFlash())
 		{
 			let [inten, flash] = wthr.GetLightning(e.fracTic);

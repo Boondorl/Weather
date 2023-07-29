@@ -1,6 +1,6 @@
-user float weather_amount = 3;
-user float weather_precip_vol = 1;
-user float weather_wind_vol = 1;
-user float weather_thunder_vol = 1;
+user float weather_amount = 3.0;
+user float weather_precip_vol = 1.0;
+user float weather_wind_vol = 1.0;
+user float weather_thunder_vol = 1.0;
 user bool weather_no_fog = false;
 user bool weather_no_lightning = false;

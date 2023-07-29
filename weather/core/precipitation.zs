@@ -1,99 +1,100 @@
 class MoveTracer : LineTracer
 {
 	override ETraceStatus TraceCallback()
-    {
+	{
 		switch (results.hitType)
 		{
 			case TRACE_HitWall:
-				if (results.tier == TIER_Middle
-					&& (results.hitLine.flags & Line.ML_TWOSIDED)
-					&& !(results.hitLine.flags & Line.ML_BLOCKEVERYTHING))
-				{
-					break;
-				}
 			case TRACE_HitFloor:
 			case TRACE_HitCeiling:
 				return TRACE_Stop;
-				break;
-			
+
 			case TRACE_HitActor:
 				if (results.hitActor.bSolid && !results.hitActor.bNonshootable)
+				{
 					return TRACE_Stop;
+				}
 				break;
 		}
-		
-        return TRACE_Skip;
-    }
+
+		return TRACE_Skip;
+	}
 }
 
 class Precipitation : Actor
 {
-	const MIN_MAP_UNIT = 1 / 65536.0;
+	const MIN_MAP_UNIT = 1.0 / 65536.0;
 
-	static const double windTab[] = { 5/32.0, 10/32.0, 25/32.0 };
-	
+	static const double windTab[] = { 5.0/32.0, 10.0/32.0, 25.0/32.0 };
+
 	private transient MoveTracer move;
 	private bool bDetonated;
-	
+
 	Default
 	{
-		FloatBobPhase 0;
-		Height 0;
-		Radius 0;
-		RenderRadius 1;
-		
-		+NOBLOCKMAP
-		+SYNCHRONIZED
-		+DONTBLAST
-		+NOTONAUTOMAP
-		+WINDTHRUST
+		FloatBobPhase 0u;
+		Height 0.0;
+		Radius 0.0;
+		RenderRadius 1.0;
+
+		+NOBLOCKMAP;
+		+SYNCHRONIZED;
+		+DONTBLAST;
+		+NOTONAUTOMAP;
+		+WINDTHRUST;
 	}
-	
+
 	override void Tick()
 	{
-		if ((freezeTics > 0 && --freezeTics >= 0) || IsFrozen())
+		if ((freezeTics > 0u && --freezeTics >= 0u) || IsFrozen())
+		{
 			return;
+		}
 
-		if (!move)
-			move = new("MoveTracer");
-		
 		if (bWindThrust)
 		{
 			switch (curSector.special)
 			{
 				// Wind_East
 				case 40: case 41: case 42: 
-					Thrust(windTab[curSector.special-40], 0);
+					Thrust(windTab[curSector.special-40], 0.0);
 					break;
-					
+
 				// Wind_North
 				case 43: case 44: case 45: 
-					Thrust(windTab[curSector.special-43], 90);
+					Thrust(windTab[curSector.special-43], 90.0);
 					break;
-					
+
 				// Wind_South
 				case 46: case 47: case 48: 
-					Thrust(windTab[curSector.special-46], 270);
+					Thrust(windTab[curSector.special-46], 270.0);
 					break;
-					
+
 				// Wind_West
 				case 49: case 50: case 51: 
-					Thrust(windTab[curSector.special-49], 180);
+					Thrust(windTab[curSector.special-49], 180.0);
 					break;
 			}
 		}
-		
-		if (!(vel ~== (0,0,0)))
+
+		if (!(vel ~== (0.0, 0.0, 0.0)))
 		{
+			if (!move)
+			{
+				move = new("MoveTracer");
+			}
+
 			Actor ignore;
 			if (players[consolePlayer].camera != players[consolePlayer].mo || !(players[consolePlayer].cheats & CF_CHASECAM))
+			{
 				ignore = players[consolePlayer].camera;
+			}
 
-			bool res = move.Trace(pos, curSector, vel, 1, TRACE_HitSky, ignore: ignore);
+			double dist = vel.Length();
+			bool res = move.Trace(pos, curSector, vel/dist, dist, TRACE_HitSky, Line.ML_BLOCKEVERYTHING, ignore: ignore);
 			if (move.results.crossedWater || move.results.crossed3DWater)
 			{
-				res = true;
-				bNoGravity = true;
+				res = bNoGravity = true;
 				move.results.hitPos = move.results.crossedWater ? move.results.crossedWaterPos : move.results.crossed3DWaterPos;
 			}
 			else if (move.results.hitType == TRACE_HasHitSky)
@@ -101,15 +102,11 @@ class Precipitation : Actor
 				Destroy();
 				return;
 			}
-			
-			SetOrigin(move.results.hitPos - move.results.hitVector.Unit()*MIN_MAP_UNIT, true);
-			vel = move.results.hitVector;
-			
-			CheckPortalTransition();
 
+			SetOrigin(move.results.hitPos - move.results.hitVector*MIN_MAP_UNIT, true);
 			if (res)
 			{
-				vel = (0,0,0);
+				vel = (0.0, 0.0, 0.0);
 				if (!bDetonated)
 				{
 					bDetonated = true;
@@ -117,12 +114,20 @@ class Precipitation : Actor
 					return;
 				}
 			}
+			else
+			{
+				vel = move.results.hitVector*dist;
+			}
 		}
-		
+
 		if (!bNoGravity && pos.z > floorZ)
+		{
 			vel.z -= GetGravity();
-		
+		}
+
 		if (CheckNoDelay() && tics >= 0 && --tics <= 0)
+		{
 			SetState(curState.nextState);
+		}
 	}
 }
