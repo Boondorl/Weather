@@ -23,8 +23,6 @@ class MoveTracer : LineTracer
 
 class Precipitation : Actor
 {
-	const MIN_MAP_UNIT = 1.0 / 65536.0;
-
 	static const double windTab[] = { 5.0/32.0, 10.0/32.0, 25.0/32.0 };
 
 	private transient MoveTracer move;
@@ -37,11 +35,11 @@ class Precipitation : Actor
 		Radius 0.0;
 		RenderRadius 1.0;
 
-		+NOBLOCKMAP;
-		+SYNCHRONIZED;
-		+DONTBLAST;
-		+NOTONAUTOMAP;
-		+WINDTHRUST;
+		+NOBLOCKMAP
+		+SYNCHRONIZED
+		+DONTBLAST
+		+NOTONAUTOMAP
+		+WINDTHRUST
 	}
 
 	override void Tick()
@@ -103,7 +101,7 @@ class Precipitation : Actor
 				return;
 			}
 
-			SetOrigin(move.results.hitPos - move.results.hitVector*MIN_MAP_UNIT, true);
+			SetOrigin(move.results.hitPos - move.results.hitVector*double.equal_epsilon, true);
 			if (res)
 			{
 				vel = (0.0, 0.0, 0.0);

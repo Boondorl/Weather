@@ -77,11 +77,11 @@ class Weather : Actor
 		Height 0.0;
 		Tag "Weather Spawner";
 
-		+NOBLOCKMAP;
-		+NOSECTOR;
-		+SYNCHRONIZED;
-		+DONTBLAST;
-		+NOTONAUTOMAP;
+		+NOBLOCKMAP
+		+NOSECTOR
+		+SYNCHRONIZED
+		+DONTBLAST
+		+NOTONAUTOMAP
 	}
 
 	override void BeginPlay()
