@@ -141,28 +141,6 @@ class PrecipitationType
 	}
 }
 
-class WeatherError
-{
-	private string message;
-	private string lump;
-	private int line;
-
-	static WeatherError Create(string message, string lump, int line)
-	{
-		let we = new("WeatherError");
-		we.message = message;
-		we.lump = lump;
-		we.line = line;
-
-		return we;
-	}
-
-	string ToString() const
-	{
-		return String.Format("%sError: %s - %s:%d", Font.TEXTCOLOR_RED, message, lump, line);
-	}
-}
-
 class WeatherHandler : StaticEventHandler
 {
 	const OPEN_BRACE = "{";
@@ -173,51 +151,16 @@ class WeatherHandler : StaticEventHandler
 	const STR_FALSE = "0";
 	const DEFAULT_STRING = "";
 
-	private WeatherError error;
-	private WeatherKeywords reserved;
 	private Map<Name, string> toggleFields;
 	private Map<Name, string> standardFields;
 
 	Map<Name, string> defaults;
 	Array<PrecipitationType> precipTypes;
 
-	// Error handling
-
-	protected clearscope bool HasError() const
-	{
-		return error != null;
-	}
-
-	protected clearscope void PrintError() const
-	{
-		Console.PrintF("%s", error.ToString());
-	}
-
-	protected void ThrowError(string msg, string lump, int line)
-	{
-		error = WeatherError.Create(msg, lump, line);
-	}
-
-	protected void ClearError()
-	{
-		error = null;
-	}
-
 	// Data fields
 
-	protected clearscope WeatherKeywords GetReserved() const
+	protected WeatherStreamReader CreateLookupTables()
 	{
-		return reserved;
-	}
-
-	protected void CreateLookupTables()
-	{
-		// Keywords
-		reserved = new("WeatherKeywords");
-		reserved.AddKeyword(OPEN_BRACE);
-		reserved.AddKeyword(CLOSE_BRACE);
-		reserved.AddKeyword(ASSIGN);
-
 		// Bools
 		toggleFields.Insert('Stormy', STR_FALSE);
 		toggleFields.Insert('Foggy', STR_FALSE);
@@ -280,12 +223,15 @@ class WeatherHandler : StaticEventHandler
 		{
 			defaults.Insert(it.GetKey(), it.GetValue());
 		}
+
+		// Reader
+		Array<string> keywords;
+		keywords.PushV(OPEN_BRACE, CLOSE_BRACE, ASSIGN);
+		return WeatherStreamReader.Create("WTHRINFO", keywords);
 	}
 
 	protected void ClearLookupTables()
 	{
-		ClearError();
-		reserved = null;
 		toggleFields.Clear();
 		standardFields.Clear();
 	}
@@ -297,18 +243,19 @@ class WeatherHandler : StaticEventHandler
 		Map<Name, string> vals;
 		vals.Copy(defaults);
 
+		bool closed;
 		while (reader.NextLexeme())
 		{
 			string word = reader.GetLexeme();
 			if (word == CLOSE_BRACE)
 			{
+				closed = true;
 				break;
 			}
 
-			if (reserved.IsReserved(word))
+			if (reader.IsReserved(word))
 			{
-				string msg = String.Format("Invalid use of keyword %s; expected property", word);
-				ThrowError(msg, reader.GetLumpName(), reader.GetLine());
+				reader.ThrowError(String.Format("Invalid use of keyword %s; expected property", word));
 				return false;
 			}
 			else if (toggleFields.CheckKey(word))
@@ -317,31 +264,19 @@ class WeatherHandler : StaticEventHandler
 			}
 			else if (standardFields.CheckKey(word))
 			{
-				int line = reader.GetLine();
-				if (!reader.NextLexeme())
+				if (!reader.ExpectLexeme(ASSIGN))
 				{
-					ThrowError("Unexpected end of file", reader.GetLumpName(), line);
+					string errorWord = reader.GetLexeme();
+					reader.ThrowError(String.Format("Expected %s; got %s", ASSIGN, errorWord.Length() ? errorWord : "unexpected end of file"));
 					return false;
 				}
 
-				if (reader.GetLexeme() != ASSIGN)
+				if (!reader.ExpectNonReserved())
 				{
-					string msg = String.Format("Expected %s; got %s", ASSIGN, reader.GetLexeme());
-					ThrowError(msg, reader.GetLumpName(), line);
-					return false;
-				}
-
-				if (!reader.NextLexeme())
-				{
-					ThrowError("Unexpected end of file", reader.GetLumpName(), line);
-					return false;
-				}
-
-				string val = reader.GetLexeme();
-				if (reserved.IsReserved(val))
-				{
-					string msg = String.Format("Invalid use of keyword %s; expected property value", val);
-					ThrowError(msg, reader.GetLumpName(), reader.GetLine());
+					string errorWord = reader.GetLexeme();
+					reader.ThrowError(errorWord.Length()
+										? String.Format("Invalid use of keyword %s; expected property value", errorWord)
+										: "Expected property value; got unexpected end of file");
 					return false;
 				}
 
@@ -349,31 +284,36 @@ class WeatherHandler : StaticEventHandler
 			}
 			else
 			{
-				string msg = String.Format("Unknown word %s", word);
-				ThrowError(msg, reader.GetLumpName(), reader.GetLine());
+				reader.ThrowError(String.Format("Unknown word %s", word));
 				return false;
 			}
 		}
 
-		pType.Initialize(vals);
+		if (!closed)
+		{
+			reader.ThrowError(String.Format("Expected %s at end of type name %s; got end of file", CLOSE_BRACE, pType.GetName()));
+			return false;
+		}
 
+		pType.Initialize(vals);
 		return true;
 	}
 
 	protected PrecipitationType ParseType(WeatherStreamReader reader)
 	{
-		string word = reader.GetLexeme();
-		if (reserved.IsReserved(word))
+		if (!reader.ExpectNonReserved())
 		{
-			string msg = String.Format("Invalid use of keyword %s; expected type name", word);
-			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
+			string errorWord = reader.GetLexeme();
+			if (errorWord.Length())
+				reader.ThrowError(String.Format("Invalid use of keyword %s; expected type name", errorWord));
+				
 			return null;
 		}
 
-		word = reader.StripQuotes();
+		string word = reader.StripQuotes();
 		if (!word.Length())
 		{
-			ThrowError("Names of precipitation types cannot be empty", reader.GetLumpName(), reader.GetLine());
+			reader.ThrowError("Names of precipitation types cannot be empty");
 			return null;
 		}
 
@@ -383,53 +323,27 @@ class WeatherHandler : StaticEventHandler
 			pType = PrecipitationType.Create(word);
 		}
 
-		if (!reader.NextLexeme())
+		if (!reader.ExpectLexeme(OPEN_BRACE))
 		{
-			ThrowError("Unexpected end of file", reader.GetLumpName(), reader.GetLine());
+			string errorWord = reader.GetLexeme();
+			reader.ThrowError(String.Format("Expected %s after type name %s; got %s", OPEN_BRACE, pType.GetName(), errorWord.Length() ? errorWord : "unexpected end of file"));
 			return null;
 		}
 
-		word = reader.GetLexeme();
-		if (word != OPEN_BRACE)
-		{
-			string msg = String.Format("Expected %s after type name %s; got %s", OPEN_BRACE, pType.GetName(), word);
-			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
-			return null;
-		}
-
-		if (!ParseBody(reader, pType))
-		{
-			return null;
-		}
-
-		word = reader.GetLexeme();
-		if (word != CLOSE_BRACE)
-		{
-			string msg = String.Format("Expected %s at end of type name %s; got end of file", CLOSE_BRACE, pType.GetName());
-			ThrowError(msg, reader.GetLumpName(), reader.GetLine());
-			return null;
-		}
-
-		return pType;
+		return ParseBody(reader, pType) ? pType : null;
 	}
 
 	override void OnEngineInitialize()
 	{
-		CreateLookupTables();
-
-		let reader = WeatherStreamReader.Create("WTHRINFO", GetReserved());
+		let reader = CreateLookupTables();
 		while (reader.NextLump())
 		{
-			bool created = false;
-			ClearError();
-
-			while (reader.NextLexeme())
+			while (!reader.AtEndOfStream())
 			{
-				created = true;
-
 				PrecipitationType pType = ParseType(reader);
-				if (reader.HasError() || HasError())
+				if (reader.HasError())
 				{
+					reader.PrintError();
 					break;
 				}
 
@@ -437,21 +351,6 @@ class WeatherHandler : StaticEventHandler
 				{
 					precipTypes.Push(pType);
 				}
-			}
-
-			if (reader.HasError())
-			{
-				let [msg, line] = reader.GetError();
-				ThrowError(msg, reader.GetLumpName(), line);
-			}
-
-			if (HasError())
-			{
-				PrintError();
-			}
-			else if (!created)
-			{
-				Console.PrintF("%sWarning: File %s is empty", Font.TEXTCOLOR_YELLOW, reader.GetLumpName());
 			}
 		}
 

@@ -1,28 +1,3 @@
-class WeatherKeywords
-{
-	private Map<string, bool> reserved;
-	private Map<int, bool> reservedChar;
-
-	bool IsReserved(string word) const
-	{
-		return reserved.CheckKey(word);
-	}
-
-	bool IsReservedChar(int ch) const
-	{
-		return reservedChar.CheckKey(ch);
-	}
-
-	void AddKeyword(string word)
-	{
-		if (word.CodePointCount() == 1)
-		{
-			reserved.Insert(word, true);
-			reservedChar.Insert(word.GetNextCodePoint(0), true);
-		}
-	}
-}
-
 class WeatherStreamReader
 {
 	enum EKeywords
@@ -38,7 +13,8 @@ class WeatherStreamReader
 	const NOT_FOUND = -1;
 	const EMPTY_STRING = "";
 
-	private WeatherKeywords reserved;
+	private Map<string, bool> reserved;
+	private Map<int, bool> reservedChar;
 
 	private bool bError;
 	private string errorMessage;
@@ -51,26 +27,34 @@ class WeatherStreamReader
 	private string stream;
 	private int curIndex, nextIndex;
 	private bool bEndOfStream;
-	private int line;
+	private int startingLine, line;
 	private string curLexeme;
 	private string strippedLexeme;
 
-	static WeatherStreamReader Create(string lumpName, WeatherKeywords reserved = null)
+	static WeatherStreamReader Create(string lumpName, Array<string> symbols)
 	{
 		let wsr = new("WeatherStreamReader");
 		wsr.lumpName = lumpName;
-		wsr.reserved = reserved;
+
+		foreach (symbol : symbols)
+		{
+			if (symbol.CodePointCount() == 1)
+			{
+				wsr.reserved.Insert(symbol, true);
+				wsr.reservedChar.Insert(symbol.GetNextCodePoint(0), true);
+			}
+		}
 
 		return wsr;
 	}
 
 	// Error handling
 
-	private void ThrowError(string msg, int l)
+	void ThrowError(string msg)
 	{
 		bError = true;
 		errorMessage = msg;
-		errorLine = l;
+		errorLine = startingLine;
 	}
 
 	bool HasError() const
@@ -78,9 +62,9 @@ class WeatherStreamReader
 		return bError;
 	}
 
-	string, int GetError() const
+	void PrintError() const
 	{
-		return errorMessage, errorLine;
+		Console.PrintF("%sError: %s - %s:%d", Font.TEXTCOLOR_RED, errorMessage, fullName, errorLine);
 	}
 
 	// Parsing
@@ -156,14 +140,24 @@ class WeatherStreamReader
 		return (Peek() == 0);
 	}
 
-	private bool IsReserved(int ch) const
+	private bool IsReservedChar(int ch) const
 	{
-		return reserved && reserved.IsReservedChar(ch);
+		return reservedChar.GetIfExists(ch);
 	}
 
 	private bool IsWhitespace(int ch) const
 	{
 		return ch == 0x20 || ch == 0x09 || (ch >= 0x0A && ch <= 0x0D);
+	}
+
+	bool AtEndOfStream() const
+	{
+		return bEndOfStream;
+	}
+
+	bool IsReserved(string symbol) const
+	{
+		return reserved.GetIfExists(symbol);
 	}
 
 	string GetLexeme() const
@@ -176,16 +170,6 @@ class WeatherStreamReader
 		return strippedLexeme;
 	}
 
-	string GetLumpName() const
-	{
-		return fullName;
-	}
-
-	int GetLine() const
-	{
-		return line;
-	}
-
 	bool NextLump()
 	{
 		fullName = EMPTY_STRING;
@@ -193,7 +177,7 @@ class WeatherStreamReader
 		curIndex = -1;
 		nextIndex = 0;
 		bEndOfStream = true;
-		line = 0;
+		startingLine = line = 0;
 		curLexeme = strippedLexeme = EMPTY_STRING;
 
 		bError = false;
@@ -212,6 +196,10 @@ class WeatherStreamReader
 		bEndOfStream = false;
 
 		bEndOfStream = CheckEndOfStream();
+		if (bEndOfStream)
+		{
+			Console.PrintF("%sWarning: File %s is empty", Font.TEXTCOLOR_YELLOW, fullName);
+		}
 
 		++curLump;
 		return true;
@@ -219,20 +207,20 @@ class WeatherStreamReader
 
 	bool NextLexeme()
 	{
+		startingLine = line;
 		curLexeme = strippedLexeme = EMPTY_STRING;
 		if (!SkipWhitespace())
 		{
 			return false;
 		}
 
-		if (IsReserved(Peek()))
+		startingLine = line;
+		if (IsReservedChar(Peek()))
 		{
 			curLexeme.AppendCharacter(Read());
 			strippedLexeme = curLexeme;
 			return true;
 		}
-
-		int startingLine = line;
 
 		bool inString, wasString;
 		inString = wasString = (Peek() == QUOTE);
@@ -256,7 +244,7 @@ class WeatherStreamReader
 			}
 
 			if (!inString
-				&& (pending == QUOTE || IsWhitespace(pending) || IsReserved(pending)))
+				&& (pending == QUOTE || IsWhitespace(pending) || IsReservedChar(pending)))
 			{
 				break;
 			}
@@ -276,7 +264,7 @@ class WeatherStreamReader
 					Read();
 					if (!SkipBlockComment())
 					{
-						ThrowError("Block comment was not closed", startingLine);
+						ThrowError("Block comment was not closed");
 						return false;
 					}
 
@@ -305,7 +293,7 @@ class WeatherStreamReader
 
 		if (inString)
 		{
-			ThrowError("String was not closed", startingLine);
+			ThrowError("String was not closed");
 			return false;
 		}
 
@@ -317,5 +305,15 @@ class WeatherStreamReader
 
 		// Ignore empty lexemes
 		return wasString || curLexeme.Length() ? true : NextLexeme();
+	}
+
+	bool ExpectLexeme(string lex)
+	{
+		return NextLexeme() && curLexeme == lex;
+	}
+
+	bool ExpectNonReserved()
+	{
+		return NextLexeme() && !IsReserved(curLexeme);
 	}
 }
