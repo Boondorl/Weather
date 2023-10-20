@@ -255,7 +255,7 @@ class WeatherHandler : StaticEventHandler
 
 			if (reader.IsReserved(word))
 			{
-				reader.ThrowError(String.Format("Invalid use of keyword %s; expected property", word));
+				reader.ThrowExpectationError("property");
 				return false;
 			}
 			else if (toggleFields.CheckKey(word))
@@ -266,15 +266,13 @@ class WeatherHandler : StaticEventHandler
 			{
 				if (!reader.ExpectLexeme(ASSIGN))
 				{
-					reader.ThrowError(String.Format("Expected %s; got %s", ASSIGN, reader.HasLexeme() ? reader.GetLexeme() : "unexpected end of file"));
+					reader.ThrowExpectationError(ASSIGN);
 					return false;
 				}
 
 				if (!reader.ExpectNonReserved())
 				{
-					reader.ThrowError(reader.HasLexeme()
-										? String.Format("Invalid use of keyword %s; expected property value", reader.GetLexeme())
-										: "Expected property value; got unexpected end of file");
+					reader.ThrowExpectationError("property value");
 					return false;
 				}
 
@@ -282,14 +280,14 @@ class WeatherHandler : StaticEventHandler
 			}
 			else
 			{
-				reader.ThrowError(String.Format("Unknown property %s", word));
+				reader.ThrowError("Unknown property "..word);
 				return false;
 			}
 		}
 
 		if (!closed)
 		{
-			reader.ThrowError(String.Format("Expected %s at end of type name %s; got end of file", CLOSE_BRACE, pType.GetName()));
+			reader.ThrowExpectationError(CLOSE_BRACE);
 			return false;
 		}
 
@@ -302,7 +300,7 @@ class WeatherHandler : StaticEventHandler
 		if (!reader.ExpectNonReserved())
 		{
 			if (reader.HasLexeme())
-				reader.ThrowError(String.Format("Invalid use of keyword %s; expected type name", reader.GetLexeme()));
+				reader.ThrowExpectationError("precipitation type name");
 				
 			return null;
 		}
@@ -310,7 +308,7 @@ class WeatherHandler : StaticEventHandler
 		string word = reader.StripQuotes();
 		if (!word.Length())
 		{
-			reader.ThrowError("Names of precipitation types cannot be empty");
+			reader.ThrowError("Precipitation type name cannot be empty");
 			return null;
 		}
 
@@ -322,7 +320,7 @@ class WeatherHandler : StaticEventHandler
 
 		if (!reader.ExpectLexeme(OPEN_BRACE))
 		{
-			reader.ThrowError(String.Format("Expected %s after type name %s; got %s", OPEN_BRACE, pType.GetName(), reader.HasLexeme() ? reader.GetLexeme() : "unexpected end of file"));
+			reader.ThrowExpectationError(OPEN_BRACE);
 			return null;
 		}
 

@@ -57,6 +57,11 @@ class WeatherStreamReader
 		errorLine = startingLine;
 	}
 
+	void ThrowExpectationError(string word)
+	{
+		ThrowError(String.Format("Expected %s; got %s", word, curLexeme.Length() ? curLexeme : "unexpected end of file"));
+	}
+
 	bool HasError() const
 	{
 		return bError;
