@@ -266,16 +266,14 @@ class WeatherHandler : StaticEventHandler
 			{
 				if (!reader.ExpectLexeme(ASSIGN))
 				{
-					string errorWord = reader.GetLexeme();
-					reader.ThrowError(String.Format("Expected %s; got %s", ASSIGN, errorWord.Length() ? errorWord : "unexpected end of file"));
+					reader.ThrowError(String.Format("Expected %s; got %s", ASSIGN, reader.HasLexeme() ? reader.GetLexeme() : "unexpected end of file"));
 					return false;
 				}
 
 				if (!reader.ExpectNonReserved())
 				{
-					string errorWord = reader.GetLexeme();
-					reader.ThrowError(errorWord.Length()
-										? String.Format("Invalid use of keyword %s; expected property value", errorWord)
+					reader.ThrowError(reader.HasLexeme()
+										? String.Format("Invalid use of keyword %s; expected property value", reader.GetLexeme())
 										: "Expected property value; got unexpected end of file");
 					return false;
 				}
@@ -284,7 +282,7 @@ class WeatherHandler : StaticEventHandler
 			}
 			else
 			{
-				reader.ThrowError(String.Format("Unknown word %s", word));
+				reader.ThrowError(String.Format("Unknown property %s", word));
 				return false;
 			}
 		}
@@ -303,9 +301,8 @@ class WeatherHandler : StaticEventHandler
 	{
 		if (!reader.ExpectNonReserved())
 		{
-			string errorWord = reader.GetLexeme();
-			if (errorWord.Length())
-				reader.ThrowError(String.Format("Invalid use of keyword %s; expected type name", errorWord));
+			if (reader.HasLexeme())
+				reader.ThrowError(String.Format("Invalid use of keyword %s; expected type name", reader.GetLexeme()));
 				
 			return null;
 		}
@@ -325,8 +322,7 @@ class WeatherHandler : StaticEventHandler
 
 		if (!reader.ExpectLexeme(OPEN_BRACE))
 		{
-			string errorWord = reader.GetLexeme();
-			reader.ThrowError(String.Format("Expected %s after type name %s; got %s", OPEN_BRACE, pType.GetName(), errorWord.Length() ? errorWord : "unexpected end of file"));
+			reader.ThrowError(String.Format("Expected %s after type name %s; got %s", OPEN_BRACE, pType.GetName(), reader.HasLexeme() ? reader.GetLexeme() : "unexpected end of file"));
 			return null;
 		}
 

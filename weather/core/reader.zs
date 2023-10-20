@@ -155,6 +155,11 @@ class WeatherStreamReader
 		return bEndOfStream;
 	}
 
+	bool HasLexeme() const
+	{
+		return curLexeme.Length() > 0;
+	}
+
 	bool IsReserved(string symbol) const
 	{
 		return reserved.GetIfExists(symbol);
