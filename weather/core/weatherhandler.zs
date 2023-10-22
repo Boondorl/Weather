@@ -143,8 +143,8 @@ class PrecipitationType
 
 class WeatherHandler : StaticEventHandler
 {
-	const OPEN_BRACE = "{";
-	const CLOSE_BRACE = "}";
+	const BLOCK_START = "{";
+	const BLOCK_CLOSE = "}";
 	const ASSIGN = "=";
 
 	const STR_TRUE = "1";
@@ -226,7 +226,7 @@ class WeatherHandler : StaticEventHandler
 
 		// Reader
 		Array<string> keywords;
-		keywords.PushV(OPEN_BRACE, CLOSE_BRACE, ASSIGN);
+		keywords.PushV(BLOCK_START, BLOCK_CLOSE, ASSIGN);
 		return WeatherStreamReader.Create("WTHRINFO", keywords);
 	}
 
@@ -247,7 +247,7 @@ class WeatherHandler : StaticEventHandler
 		while (reader.NextLexeme())
 		{
 			string word = reader.GetLexeme();
-			if (word == CLOSE_BRACE)
+			if (word == BLOCK_CLOSE)
 			{
 				closed = true;
 				break;
@@ -287,7 +287,7 @@ class WeatherHandler : StaticEventHandler
 
 		if (!closed)
 		{
-			reader.ThrowExpectationError(CLOSE_BRACE);
+			reader.ThrowExpectationError(BLOCK_CLOSE);
 			return false;
 		}
 
@@ -318,9 +318,9 @@ class WeatherHandler : StaticEventHandler
 			pType = PrecipitationType.Create(word);
 		}
 
-		if (!reader.ExpectLexeme(OPEN_BRACE))
+		if (!reader.ExpectLexeme(BLOCK_START))
 		{
-			reader.ThrowExpectationError(OPEN_BRACE);
+			reader.ThrowExpectationError(BLOCK_START);
 			return null;
 		}
 
